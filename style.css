@@ -135,7 +135,7 @@ canvas {
 	font-weight: bold;
 	font-size: 14px;
 	cursor: pointer;
-	transition: background-color 0.2s, border-color 0.2s;
+	transition: background-color 0.2s, border-color 0.2s, transform 0.4s ease-out, opacity 0.3s ease;
 	user-select: none;
 	border-radius: 4px;
 	position: relative;
@@ -153,7 +153,18 @@ canvas {
 	transform: scale(1.1);
 	background-color: #4a4a4a;
 	border-color: #aaa;
-	transition: all 0.4s ease-out;
+}
+
+.element.disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+	pointer-events: none;
+}
+
+.element.disabled:hover {
+	transform: none;
+	background-color: transparent;
+	border-color: #555;
 }
 
 .controls-info {
