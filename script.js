@@ -766,41 +766,102 @@ function generateName(composition) {
 	}
 
 	const CHEMICAL_DATA = {
-		GREEK_PREFIXES: { 1: '', 2: 'di', 3: 'tri', 4: 'tetra', 5: 'penta', 6: 'hexa', 7: 'hepta', 8: 'octa', 9: 'nona', 10: 'deca' },
-		ORGANIC_PREFIXES: { 1: 'meth', 2: 'eth', 3: 'prop', 4: 'but', 5: 'pent', 6: 'hex', 7: 'hept', 8: 'oct', 9: 'non', 10: 'dec' },
-		ELEMENT_ROOTS: { 'O': 'ox', 'H': 'hydr', 'C': 'carb', 'N': 'nitr', 'P': 'phosph', 'S': 'sulf', 'F': 'fluor', 'Cl': 'chlor', 'Br': 'brom', 'I': 'iod', 'Se': 'selen', 'As': 'arsen', 'Te': 'tellur', 'B': 'bor', 'Si': 'silic' },
-		COMMON_OXIDATION_STATES: { 'Fe': [3, 2], 'Cu': [2, 1], 'Hg': [2, 1], 'Sn': [4, 2], 'Pb': [4, 2], 'Co': [3, 2], 'Ni': [2, 3], 'Au': [3, 1], 'Mn': [2, 3, 4, 6, 7], 'Cr': [3, 6, 2] },
-		ROMAN_NUMERALS: { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII' }
+		GREEK_PREFIXES: {
+			1: '', 2: 'di', 3: 'tri', 4: 'tetra', 5: 'penta', 6: 'hexa', 7: 'hepta', 8: 'octa', 9: 'nona', 10: 'deca',
+			11: 'undeca', 12: 'dodeca', 13: 'trideca', 14: 'tetradeca', 15: 'pentadeca', 16: 'hexadeca', 17: 'heptadeca', 18: 'octadeca', 19: 'nonadeca',
+			20: 'icosa', 21: 'henicosa', 22: 'docosa', 23: 'tricosa', 24: 'tetracosa', 25: 'pentacosa', 26: 'hexacosa', 27: 'heptacosa', 28: 'octacosa', 29: 'nonacosa',
+			30: 'triaconta', 31: 'hentriaconta', 32: 'dotriaconta', 40: 'tetraconta', 50: 'pentaconta', 60: 'hexaconta', 70: 'heptaconta', 80: 'octaconta', 90: 'nonaconta', 100: 'hecta'
+		},
+		ORGANIC_PREFIXES: {
+			1: 'meth', 2: 'eth', 3: 'prop', 4: 'but', 5: 'pent', 6: 'hex', 7: 'hept', 8: 'oct', 9: 'non', 10: 'dec',
+			11: 'undec', 12: 'dodec', 13: 'tridec', 14: 'tetradec', 15: 'pentadec', 16: 'hexadec', 17: 'heptadec', 18: 'octadec', 19: 'nonadec',
+			20: 'icos', 21: 'henicos', 22: 'docos', 23: 'tricos', 24: 'tetracos', 25: 'pentacos', 26: 'hexacos', 27: 'heptacos', 28: 'octacos', 29: 'nonacos',
+			30: 'triacont', 31: 'hentriacont', 40: 'tetracont', 50: 'pentacont', 60: 'hexacont', 70: 'heptacont', 80: 'octacont', 90: 'nonacont', 100: 'hect'
+		},
+		ELEMENT_ROOTS: {
+			'O': 'ox', 'H': 'hydr', 'C': 'carb', 'N': 'nitr', 'P': 'phosph', 'S': 'sulf', 'F': 'fluor', 'Cl': 'chlor',
+			'Br': 'brom', 'I': 'iod', 'Se': 'selen', 'As': 'arsen', 'Te': 'tellur', 'B': 'bor', 'Si': 'silic', 'Sb': 'stib',
+			'At': 'astat', 'Fe': 'ferr', 'Cu': 'cupr', 'Au': 'aur', 'Ag': 'argent', 'Pb': 'plumb', 'Sn': 'stann', 'Hg': 'mercur',
+			'Mn': 'mangan', 'Cr': 'chrom', 'Mo': 'molybd', 'W': 'tungst', 'V': 'vanad', 'Ti': 'titan', 'Zr': 'zircon',
+			'Al': 'alumin', 'Ga': 'gall', 'Zn': 'zinc', 'Ni': 'nickel', 'Co': 'cobalt', 'Pt': 'platin', 'Pd': 'pallad',
+			'Ir': 'irid', 'Os': 'osm', 'Ru': 'ruthen', 'Rh': 'rhod', 'Re': 'rhen', 'Tc': 'technet', 'Ge': 'german', 'Po': 'polon'
+		},
+		COMMON_OXIDATION_STATES: {
+			'Fe': [3, 2], 'Cu': [2, 1], 'Hg': [2, 1], 'Sn': [4, 2], 'Pb': [4, 2], 'Co': [3, 2], 'Ni': [2, 3], 'Au': [3, 1],
+			'Mn': [2, 3, 4, 6, 7], 'Cr': [3, 6, 2], 'V': [5, 4, 3, 2], 'Ti': [4, 3, 2], 'Pt': [4, 2], 'Pd': [4, 2], 'Ag': [1, 2],
+			'Zn': [2], 'Cd': [2], 'W': [6, 5, 4, 3, 2], 'Mo': [6, 5, 4, 3, 2, 0], 'Re': [7, 6, 4, 2, -1], 'Tc': [7, 6, 4],
+			'Ru': [2, 3, 4, 6, 8], 'Os': [2, 3, 4, 6, 8], 'Rh': [1, 2, 3, 4, 6], 'Ir': [1, 2, 3, 4, 6], 'Nb': [5, 4, 3],
+			'Ta': [5, 4], 'Zr': [4, 3, 2], 'Sc': [3], 'Y': [3], 'La': [3], 'Al': [3], 'Ga': [3, 1], 'In': [3, 1],
+			'Tl': [3, 1], 'Ge': [4, 2], 'As': [5, 3, -3], 'Sb': [5, 3, -3], 'Bi': [5, 3], 'Po': [6, 4, 2], 'S': [-2, 0, 2, 4, 6],
+			'N': [-3, -2, -1, 0, 1, 2, 3, 4, 5], 'P': [-3, 1, 3, 4, 5], 'Cl': [-1, 1, 3, 5, 7], 'Br': [-1, 1, 3, 5, 7], 'I': [-1, 1, 3, 5, 7]
+		},
+		ROMAN_NUMERALS: {
+			1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X',
+			11: 'XI', 12: 'XII', 13: 'XIII', 14: 'XIV', 15: 'XV', 16: 'XVI', 17: 'XVII', 18: 'XVIII', 19: 'XIX', 20: 'XX'
+		}
 	};
-	
+
 	const KNOWN_COMPOUNDS = {
-		'H2O': 'Water', 'H2O2': 'Hydrogen Peroxide', 'O3': 'Ozone',
-		'CO2': 'Carbon Dioxide', 'CO': 'Carbon Monoxide', 'CS2': 'Carbon Disulfide',
-		'NH3': 'Ammonia', 'N2H4': 'Hydrazine', 'PH3': 'Phosphine', 'AsH3': 'Arsine', 'B2H6': 'Diborane',
-		'NO': 'Nitric Oxide', 'NO2': 'Nitrogen Dioxide', 'N2O': 'Nitrous Oxide', 'N2O4': 'Dinitrogen Tetroxide',
-		'SO2': 'Sulfur Dioxide', 'SO3': 'Sulfur Trioxide', 'H2S': 'Hydrogen Sulfide', 'SF6': 'Sulfur Hexafluoride',
-		'HCl': 'Hydrogen Chloride', 'HF': 'Hydrogen Fluoride', 'HBr': 'Hydrogen Bromide', 'HI': 'Hydrogen Iodide', 'HCN': 'Hydrogen Cyanide',
-		'SiO2': 'Silicon Dioxide', 'SiH4': 'Silane',
-		'CH4': 'Methane', 'C2H6': 'Ethane', 'C3H8': 'Propane', 'C4H10': 'Butane',
-		'C2H4': 'Ethene', 'C3H6': 'Propene', 'C4H8': 'Butene',
-		'C2H2': 'Ethyne', 'C3H4': 'Propyne', 'C4H6': 'Butyne',
-		'C6H6': 'Benzene', 'C8H10': 'Xylene', 'C7H8': 'Toluene'
+		'H2O': 'Water', 'H2O2': 'Hydrogen Peroxide', 'O3': 'Ozone', 'D2O': 'Heavy Water',
+		'CO2': 'Carbon Dioxide', 'CO': 'Carbon Monoxide', 'CS2': 'Carbon Disulfide', 'COS': 'Carbonyl Sulfide',
+		'NH3': 'Ammonia', 'N2H4': 'Hydrazine', 'PH3': 'Phosphine', 'AsH3': 'Arsine', 'SbH3': 'Stibine', 'BiH3': 'Bismuthine', 'B2H6': 'Diborane',
+		'NO': 'Nitric Oxide', 'NO2': 'Nitrogen Dioxide', 'N2O': 'Nitrous Oxide', 'N2O3': 'Dinitrogen Trioxide', 'N2O4': 'Dinitrogen Tetroxide', 'N2O5': 'Dinitrogen Pentoxide',
+		'SO2': 'Sulfur Dioxide', 'SO3': 'Sulfur Trioxide', 'H2S': 'Hydrogen Sulfide', 'SF6': 'Sulfur Hexafluoride', 'SOCl2': 'Thionyl Chloride', 'SO2Cl2': 'Sulfuryl Chloride',
+		'SiO2': 'Silicon Dioxide', 'SiH4': 'Silane', 'Si2H6': 'Disilane', 'SiC': 'Silicon Carbide',
+		'HCl': 'Hydrogen Chloride', 'HF': 'Hydrogen Fluoride', 'HBr': 'Hydrogen Bromide', 'HI': 'Hydrogen Iodide', 'HCN': 'Hydrogen Cyanide', 'HOCN': 'Isocyanic Acid', 'HNCO': 'Cyanic Acid',
+		'H2SO4': 'Sulfuric Acid', 'HNO3': 'Nitric Acid', 'H3PO4': 'Phosphoric Acid', 'H2CO3': 'Carbonic Acid', 'HClO4': 'Perchloric Acid', 'HClO3': 'Chloric Acid', 'HIO3': 'Iodic Acid',
+		'H3PO3': 'Phosphorous Acid', 'H3BO3': 'Boric Acid', 'H2SO3': 'Sulfurous Acid', 'H2CrO4': 'Chromic Acid', 'HMnO4': 'Permanganic Acid',
+		'NaOH': 'Sodium Hydroxide', 'KOH': 'Potassium Hydroxide', 'Ca(OH)2': 'Calcium Hydroxide', 'Mg(OH)2': 'Magnesium Hydroxide', 'Al(OH)3': 'Aluminum Hydroxide',
+		'NaCl': 'Sodium Chloride', 'KCl': 'Potassium Chloride', 'CaCl2': 'Calcium Chloride', 'MgCl2': 'Magnesium Chloride', 'FeCl3': 'Iron(III) Chloride',
+		'CaCO3': 'Calcium Carbonate', 'NaHCO3': 'Sodium Bicarbonate', 'Na2CO3': 'Sodium Carbonate', 'K2CO3': 'Potassium Carbonate',
+		'NaNO3': 'Sodium Nitrate', 'KNO3': 'Potassium Nitrate', 'NH4Cl': 'Ammonium Chloride', 'Na2SO4': 'Sodium Sulfate', 'CuSO4': 'Copper(II) Sulfate',
+		'CH4': 'Methane', 'C2H6': 'Ethane', 'C3H8': 'Propane', 'C4H10': 'Butane', 'C5H12': 'Pentane', 'C6H14': 'Hexane', 'C7H16': 'Heptane', 'C8H18': 'Octane', 'C9H20': 'Nonane', 'C10H22': 'Decane',
+		'C2H4': 'Ethene', 'C3H6': 'Propene', 'C4H8': 'Butene', 'C5H10': 'Pentene', 'C6H12': 'Hexene',
+		'C2H2': 'Ethyne', 'C3H4': 'Propyne', 'C4H6': 'Butyne', 'C5H8': 'Pentyne', 'C6H10': 'Hexyne',
+		'C6H6': 'Benzene', 'C7H8': 'Toluene', 'C8H10': 'Xylene', 'C6H12': 'Cyclohexane', 'C10H8': 'Naphthalene', 'C14H10': 'Anthracene',
+		'CH2O': 'Formaldehyde', 'CH4O': 'Methanol', 'C2H4O': 'Acetaldehyde', 'C2H4O2': 'Acetic Acid', 'C2H6O': 'Ethanol',
+		'C3H6O': 'Acetone', 'C3H8O': 'Propanol', 'C4H8O': 'Butanone', 'C4H10O': 'Butanol',
+		'HCOOH': 'Formic Acid', 'CH3COOH': 'Acetic Acid', 'CH3CH2COOH': 'Propanoic Acid', 'CH3COOCH3': 'Methyl Acetate',
+		'CH3OCH3': 'Dimethyl Ether', 'CH3CH2OCH2CH3': 'Diethyl Ether',
+		'CH3NH2': 'Methylamine', 'C2H5NH2': 'Ethylamine', 'C6H5NH2': 'Aniline',
+		'CH2Cl2': 'Dichloromethane', 'CHCl3': 'Chloroform', 'CCl4': 'Carbon Tetrachloride',
+		'C6H12O6': 'Glucose', 'C12H22O11': 'Sucrose', 'C2H5SH': 'Ethanethiol', 'C6H5OH': 'Phenol',
+		'CH3COONa': 'Sodium Acetate', 'C6H5COOH': 'Benzoic Acid', 'C6H5COONa': 'Sodium Benzoate',
+		'C5H5N': 'Pyridine', 'C4H4O': 'Furan', 'C4H4S': 'Thiophene', 'C4H5N': 'Pyrrole'
 	};
 
 	const POLYATOMIC_IONS = {
 		'H3O': { name: 'hydronium', charge: 1 }, 'NH4': { name: 'ammonium', charge: 1 },
-		'CH3COO': { name: 'acetate', charge: -1 }, 'C2H3O2': { name: 'acetate', charge: -1 }, 'CN': { name: 'cyanide', charge: -1 },
+		'CH3COO': { name: 'acetate', charge: -1 }, 'C2H3O2': { name: 'acetate', charge: -1 },
+		'CN': { name: 'cyanide', charge: -1 }, 'OCN': { name: 'cyanate', charge: -1 }, 'SCN': { name: 'thiocyanate', charge: -1 },
 		'CO3': { name: 'carbonate', charge: -2 }, 'HCO3': { name: 'bicarbonate', charge: -1 },
 		'C2O4': { name: 'oxalate', charge: -2 }, 'HC2O4': { name: 'bioxalate', charge: -1 },
-		'ClO': { name: 'hypochlorite', charge: -1 }, 'ClO2': { name: 'chlorite', charge: -1 }, 'ClO3': { name: 'chlorate', charge: -1 }, 'ClO4': { name: 'perchlorate', charge: -1 },
+		'ClO': { name: 'hypochlorite', charge: -1 }, 'ClO2': { name: 'chlorite', charge: -1 },
+		'ClO3': { name: 'chlorate', charge: -1 }, 'ClO4': { name: 'perchlorate', charge: -1 },
+		'BrO': { name: 'hypobromite', charge: -1 }, 'BrO2': { name: 'bromite', charge: -1 },
+		'BrO3': { name: 'bromate', charge: -1 }, 'BrO4': { name: 'perbromate', charge: -1 },
+		'IO': { name: 'hypoiodite', charge: -1 }, 'IO2': { name: 'iodite', charge: -1 },
+		'IO3': { name: 'iodate', charge: -1 }, 'IO4': { name: 'periodate', charge: -1 }, 'H4IO6': { name: 'periodate', charge: -1 },
 		'CrO4': { name: 'chromate', charge: -2 }, 'Cr2O7': { name: 'dichromate', charge: -2 },
-		'MnO4': { name: 'permanganate', charge: -1 }, 'NO2': { name: 'nitrite', charge: -1 }, 'NO3': { name: 'nitrate', charge: -1 },
+		'MnO4': { name: 'permanganate', charge: -1 }, 'MnO4-2': { name: 'manganate', charge: -2 },
+		'NO2': { name: 'nitrite', charge: -1 }, 'NO3': { name: 'nitrate', charge: -1 },
 		'OH': { name: 'hydroxide', charge: -1 }, 'O2': { name: 'peroxide', charge: -2 },
 		'PO3': { name: 'phosphite', charge: -3 }, 'PO4': { name: 'phosphate', charge: -3 },
 		'HPO4': { name: 'hydrogen phosphate', charge: -2 }, 'H2PO4': { name: 'dihydrogen phosphate', charge: -1 },
-		'SCN': { name: 'thiocyanate', charge: -1 }, 'SO3': { name: 'sulfite', charge: -2 }, 'SO4': { name: 'sulfate', charge: -2 },
+		'S2O3': { name: 'thiosulfate', charge: -2 }, 'S2O8': { name: 'peroxydisulfate', charge: -2 },
+		'SO3': { name: 'sulfite', charge: -2 }, 'SO4': { name: 'sulfate', charge: -2 },
 		'HSO3': { name: 'bisulfite', charge: -1 }, 'HSO4': { name: 'bisulfate', charge: -1 },
-		'S2O3': { name: 'thiosulfate', charge: -2 }
+		'S2O7': { name: 'disulfate', charge: -2 }, 'S4O6': { name: 'tetrathionate', charge: -2 },
+		'CNO': { name: 'cyanate', charge: -1 }, 'NCO': { name: 'isocyanato', charge: -1 },
+		'SiO3': { name: 'silicate', charge: -2 }, 'BO3': { name: 'borate', charge: -3 }, 'B4O7': { name: 'tetraborate', charge: -2 },
+		'AsO3': { name: 'arsenite', charge: -3 }, 'AsO4': { name: 'arsenate', charge: -3 },
+		'SeO3': { name: 'selenite', charge: -2 }, 'SeO4': { name: 'selenate', charge: -2 },
+		'TeO3': { name: 'tellurite', charge: -2 }, 'TeO4': { name: 'tellurate', charge: -2 },
+		'IO5': { name: 'mesoperiodate', charge: -3 }, 'H2VO4': { name: 'vanadate', charge: -1 }, 'VO3': { name: 'metavanadate', charge: -1 },
+		'MoO4': { name: 'molybdate', charge: -2 }, 'WO4': { name: 'tungstate', charge: -2 },
+		'RuO4': { name: 'ruthenate', charge: -2 }, 'OsO4': { name: 'osmate', charge: -2 },
+		'HCOO': { name: 'formate', charge: -1 }, 'C6H5COO': { name: 'benzoate', charge: -1 },
+		'Fe(CN)6': { name: 'hexacyanoferrate(II)', charge: -4 }, 'Fe(CN)6-3': { name: 'hexacyanoferrate(III)', charge: -3 }
 	};
 
 	const getElement = (symbol) => elementsData.find(el => el.symbol === symbol);
