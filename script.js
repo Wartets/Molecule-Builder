@@ -206,7 +206,6 @@ function handleBondCreation(targetAtom) {
 	}
 }
 
-
 function incrementBondOrder(atom1, atom2) {
 	const bond = bonds.find(b => (b.atom1 === atom1 && b.atom2 === atom2) || (b.atom1 === atom2 && b.atom2 === atom1));
 	if (bond) {
@@ -361,10 +360,21 @@ function populatePeriodicTable() {
 		div.className = 'element';
 		div.style.gridRow = el.row;
 		div.style.gridColumn = el.col;
+
 		const hexColor = '#' + el.color.toString(16).padStart(6, '0');
 		div.style.color = hexColor;
+
 		div.innerHTML = `<span class="number">${el.number}</span>${el.symbol}`;
 		div.dataset.symbol = el.symbol;
+
+		div.title = `
+Name: ${el.name}
+Atomic Mass: ${el.atomicMass}
+Electronegativity: ${el.electronegativity ?? 'N/A'}
+Max Bonds: ${el.maxBonds}
+Category: ${el.category}
+`.trim();
+
 		div.addEventListener('click', () => prepareToAddAtom(el.symbol));
 		table.appendChild(div);
 	});
@@ -601,7 +611,6 @@ function getNewAtomPosition(targetAtom, newAtom) {
 	const idealLength = getIdealBondLength(targetAtom, newAtom, 1);
 	return new THREE.Vector3().copy(targetAtom.position).add(bestNewDirection.multiplyScalar(idealLength));
 }
-
 
 function createBond(atom1, atom2) {
 	const existingBond = bonds.find(b => (b.atom1 === atom1 && b.atom2 === atom2) || (b.atom1 === atom2 && b.atom2 === atom1));
