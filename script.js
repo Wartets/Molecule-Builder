@@ -33,9 +33,15 @@ let bonds = [];
 let placementHelpers = [];
 let atomToPlaceData = null;
 let selectedAtom = null;
+let atomForBonding = null;
 
 let isCtrlPressed = false;
+let isShiftPressed = false;
 let draggedAtom = null;
+
+let isPlacementModeActive = false;
+let selectedHelperIndex = -1;
+
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 const dragPlane = new THREE.Plane();
@@ -81,14 +87,41 @@ function initEventListeners() {
 }
 
 function onKeyDown(event) {
+	if (isPlacementModeActive) {
+		if (event.key === 'ArrowRight') {
+			selectedHelperIndex = (selectedHelperIndex + 1) % placementHelpers.length;
+			highlightSelectedHelper();
+		} else if (event.key === 'ArrowLeft') {
+			selectedHelperIndex = (selectedHelperIndex - 1 + placementHelpers.length) % placementHelpers.length;
+			highlightSelectedHelper();
+		} else if (event.key === 'Enter') {
+			const helper = placementHelpers[selectedHelperIndex];
+			if (helper) {
+				placeAtom(atomToPlaceData, helper.targetAtom);
+			}
+			cancelPlacement();
+		} else if (event.key === 'Escape') {
+			cancelPlacement();
+		}
+		return;
+	}
+
 	if (event.key === 'Control' && !isCtrlPressed) {
 		isCtrlPressed = true;
 		controls.enabled = false;
 		renderer.domElement.style.cursor = 'pointer';
 	}
+	if (event.key === 'Shift' && !isShiftPressed) {
+		isShiftPressed = true;
+		controls.enabled = false;
+		renderer.domElement.style.cursor = 'crosshair';
+	}
+
 	if (event.key === 'Escape') {
-		if (atomToPlaceData) {
-			cancelPlacement();
+		if (atomToPlaceData) cancelPlacement();
+		if (atomForBonding) {
+			atomForBonding.mesh.material.emissive.setHex(0x000000);
+			atomForBonding = null;
 		}
 		deselectAllAtoms();
 	}
@@ -97,30 +130,27 @@ function onKeyDown(event) {
 function onKeyUp(event) {
 	if (event.key === 'Control') {
 		isCtrlPressed = false;
-		controls.enabled = !atomToPlaceData;
-		renderer.domElement.style.cursor = 'auto';
-		if (draggedAtom) {
-			draggedAtom = null;
+		controls.enabled = !isShiftPressed && !isPlacementModeActive;
+		renderer.domElement.style.cursor = isShiftPressed ? 'crosshair' : 'auto';
+		if (draggedAtom) draggedAtom = null;
+	}
+	if (event.key === 'Shift') {
+		isShiftPressed = false;
+		controls.enabled = !isCtrlPressed && !isPlacementModeActive;
+		renderer.domElement.style.cursor = isCtrlPressed ? 'pointer' : 'auto';
+		if (atomForBonding) {
+			atomForBonding.mesh.material.emissive.setHex(0x000000);
+			atomForBonding = null;
 		}
 	}
 }
 
 function onMouseDown3D(event) {
+	if (isPlacementModeActive) return;
+
 	mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
 	mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 	raycaster.setFromCamera(mouse, camera);
-
-	if (atomToPlaceData) {
-		const intersects = raycaster.intersectObjects(placementHelpers.map(h => h.mesh));
-		if (intersects.length > 0) {
-			const helper = placementHelpers.find(h => h.mesh === intersects[0].object);
-			if (helper) {
-				placeAtom(atomToPlaceData, helper.targetAtom);
-			}
-		}
-		cancelPlacement();
-		return;
-	}
 
 	const atomMeshes = atoms.map(a => a.mesh);
 	const intersects = raycaster.intersectObjects(atomMeshes, false);
@@ -129,7 +159,9 @@ function onMouseDown3D(event) {
 		const targetAtom = atoms.find(a => a.mesh === intersects[0].object);
 		if (!targetAtom) return;
 
-		if (isCtrlPressed) {
+		if (isShiftPressed) {
+			handleBondCreation(targetAtom);
+		} else if (isCtrlPressed) {
 			if (event.button === 0) {
 				draggedAtom = targetAtom;
 				renderer.domElement.style.cursor = 'grabbing';
@@ -145,6 +177,30 @@ function onMouseDown3D(event) {
 		}
 	} else if (event.button === 0) {
 		deselectAllAtoms();
+	}
+}
+
+function handleBondCreation(targetAtom) {
+	if (!atomForBonding) {
+		atomForBonding = targetAtom;
+		atomForBonding.mesh.material.emissive.setHex(0x005588);
+	} else {
+		if (atomForBonding !== targetAtom) {
+			incrementBondOrder(atomForBonding, targetAtom);
+		}
+		atomForBonding.mesh.material.emissive.setHex(0x000000);
+		atomForBonding = null;
+	}
+}
+
+function incrementBondOrder(atom1, atom2) {
+	const bond = bonds.find(b => (b.atom1 === atom1 && b.atom2 === atom2) || (b.atom1 === atom2 && b.atom2 === atom1));
+	if (bond) {
+		if (getCurrentValence(atom1) < atom1.data.maxBonds && getCurrentValence(atom2) < atom2.data.maxBonds) {
+			bond.order++;
+			updateBondMeshes();
+			updatePeriodicTableState();
+		}
 	}
 }
 
@@ -284,7 +340,7 @@ function populatePeriodicTable() {
 }
 
 function prepareToAddAtom(symbol) {
-	if (atomToPlaceData) return;
+	if (atomToPlaceData || isPlacementModeActive) return;
 	const data = elementsData.find(e => e.symbol === symbol);
 	if (!data) return;
 
@@ -304,20 +360,28 @@ function prepareToAddAtom(symbol) {
 		placeAtom(data, possibleTargets[0]);
 	} else {
 		atomToPlaceData = data;
+		isPlacementModeActive = true;
+		selectedHelperIndex = 0;
 		createPlacementHelpers(possibleTargets, data);
 	}
 }
 
 function createPlacementHelpers(targetAtoms, newData) {
-	cancelPlacement();
+	cancelPlacement(true);
 	controls.enabled = false;
-	const helperMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.6 });
+
 	const centerOfMass = new THREE.Vector3();
 	atoms.forEach(a => centerOfMass.add(a.position));
 	centerOfMass.divideScalar(atoms.length);
 
 	targetAtoms.forEach(target => {
-		const helperGeometry = new THREE.SphereGeometry(newData.radius * 0.6, 16, 16);
+		const helperGeometry = new THREE.SphereGeometry(newData.radius, 16, 16);
+		const helperMaterial = new THREE.MeshStandardMaterial({
+			color: 0x00ff00,
+			transparent: true,
+			opacity: 0.5,
+			emissive: 0x000000
+		});
 		const mesh = new THREE.Mesh(helperGeometry, helperMaterial);
 
 		let direction = new THREE.Vector3().subVectors(target.position, centerOfMass).normalize();
@@ -327,17 +391,33 @@ function createPlacementHelpers(targetAtoms, newData) {
 		const distance = target.data.radius + newData.radius;
 		mesh.position.copy(target.position).add(direction.multiplyScalar(distance * 0.8));
 
-		const helper = { mesh, targetAtom: target };
-		placementHelpers.push(helper);
+		placementHelpers.push({ mesh, targetAtom: target });
 		scene.add(mesh);
+	});
+	highlightSelectedHelper();
+}
+
+function highlightSelectedHelper() {
+	placementHelpers.forEach((helper, index) => {
+		if (index === selectedHelperIndex) {
+			helper.mesh.material.emissive.setHex(0x008800);
+			helper.mesh.material.opacity = 0.7;
+		} else {
+			helper.mesh.material.emissive.setHex(0x000000);
+			helper.mesh.material.opacity = 0.5;
+		}
 	});
 }
 
-function cancelPlacement() {
+function cancelPlacement(isInternalCall = false) {
 	placementHelpers.forEach(h => scene.remove(h.mesh));
 	placementHelpers = [];
-	atomToPlaceData = null;
-	controls.enabled = !isCtrlPressed;
+	if (!isInternalCall) {
+		atomToPlaceData = null;
+		isPlacementModeActive = false;
+		selectedHelperIndex = -1;
+	}
+	controls.enabled = !isCtrlPressed && !isShiftPressed;
 }
 
 function addAtom(data, position) {
@@ -376,20 +456,14 @@ function placeAtom(newData, targetAtom) {
 }
 
 function createBond(atom1, atom2) {
-	const existingBond = bonds.find(b =>
-		(b.atom1 === atom1 && b.atom2 === atom2) || (b.atom1 === atom2 && b.atom2 === atom1)
-	);
-	if (existingBond) {
-		if (getCurrentValence(atom1) < atom1.data.maxBonds && getCurrentValence(atom2) < atom2.data.maxBonds) {
-			existingBond.order++;
-		}
-	} else {
+	const existingBond = bonds.find(b => (b.atom1 === atom1 && b.atom2 === atom2) || (b.atom1 === atom2 && b.atom2 === atom1));
+	if (!existingBond) {
 		const bond = { atom1, atom2, order: 1, meshes: [] };
 		bonds.push(bond);
 		atom1.bonds.push(bond);
 		atom2.bonds.push(bond);
+		updateBondMeshes();
 	}
-	updateBondMeshes();
 }
 
 function updateAllBondsValence() {
@@ -408,20 +482,10 @@ function updateAllBondsValence() {
 			}
 		});
 	} while (changed);
-
-	do {
-		changed = false;
-		bonds.forEach(bond => {
-			const { atom1, atom2 } = bond;
-			if (getCurrentValence(atom1) < atom1.data.maxBonds && getCurrentValence(atom2) < atom2.data.maxBonds) {
-				bond.order++;
-				changed = true;
-			}
-		});
-		if(changed) updateAllBondsValence();
-	} while (changed);
 	updateBondMeshes();
+	updatePeriodicTableState();
 }
+
 
 function updatePhysics(deltaTime) {
 	if (atoms.length < 2) return;
@@ -505,6 +569,7 @@ function resetSimulation() {
 	bonds = [];
 	selectedAtom = null;
 	draggedAtom = null;
+	atomForBonding = null;
 	updatePeriodicTableState();
 }
 
@@ -520,9 +585,12 @@ function animate() {
 	const deltaTime = Math.min(clock.getDelta(), 0.1);
 	const elapsedTime = clock.getElapsedTime();
 
-	if (placementHelpers.length > 0) {
-		const pulse = Math.sin(elapsedTime * 8) * 0.1 + 1.0;
-		placementHelpers.forEach(h => h.mesh.scale.set(pulse, pulse, pulse));
+	if (isPlacementModeActive && placementHelpers.length > 0) {
+		const pulse = Math.sin(elapsedTime * 8) * 0.05 + 1.0;
+		const selectedHelper = placementHelpers[selectedHelperIndex];
+		if (selectedHelper) {
+			selectedHelper.mesh.scale.set(pulse, pulse, pulse);
+		}
 	}
 
 	if (atoms.length > 0) {
