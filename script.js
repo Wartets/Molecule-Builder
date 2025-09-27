@@ -304,10 +304,61 @@ function initUI() {
 		settingsIcon.classList.add('hidden');
 	});
 	document.getElementById('reset-button').addEventListener('click', resetSimulation);
+
+	const resizeHandle = document.getElementById('resize-handle');
+	let isResizing = false;
+	let currentScale = 0.8;
+	let initialUnscaledWidth;
+	let initialMouseX;
+
+	uiContainer.style.transform = `scale(${currentScale})`;
+
+	const startResize = (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+
+		isResizing = true;
+		initialUnscaledWidth = uiContainer.offsetWidth;
+		initialMouseX = e.clientX;
+
+		document.body.style.cursor = 'se-resize';
+		window.addEventListener('mousemove', doResize);
+		window.addEventListener('mouseup', stopResize);
+	};
+
+	const doResize = (e) => {
+		if (!isResizing) return;
+
+		const mouseDeltaX = e.clientX - initialMouseX;
+		const newScaledWidth = (initialUnscaledWidth * currentScale) + mouseDeltaX;
+		let newScale = newScaledWidth / initialUnscaledWidth;
+
+		newScale = Math.max(0.4, Math.min(newScale, 1.5));
+
+		uiContainer.style.transform = `scale(${newScale})`;
+	};
+
+	const stopResize = () => {
+		if (!isResizing) return;
+		isResizing = false;
+
+		const transformValue = uiContainer.style.transform;
+		const scaleMatch = transformValue.match(/scale\(([^)]+)\)/);
+		if (scaleMatch && scaleMatch[1]) {
+			currentScale = parseFloat(scaleMatch[1]);
+		}
+
+		document.body.style.cursor = 'auto';
+		window.removeEventListener('mousemove', doResize);
+		window.removeEventListener('mouseup', stopResize);
+	};
+
+	resizeHandle.addEventListener('mousedown', startResize);
+
 	let isDragging = false;
 	let offsetX, offsetY;
 	const onMouseDown = (e) => {
-		if (e.target.closest('button')) return;
+		if (e.target.closest('button') || e.target.id === 'resize-handle') return;
 		isDragging = true;
 		offsetX = e.clientX - uiContainer.getBoundingClientRect().left;
 		offsetY = e.clientY - uiContainer.getBoundingClientRect().top;
@@ -351,7 +402,7 @@ function updatePeriodicTableState() {
 	elementsInTable.forEach(elDiv => {
 		const symbol = elDiv.dataset.symbol;
 		const elData = elementsData.find(e => e.symbol === symbol);
-		if (!elData || elData.maxBonds === 0) {
+		if (!elData || (elData.maxBonds === 0 && atoms.length > 0)) {
 			elDiv.classList.add('disabled');
 			return;
 		}

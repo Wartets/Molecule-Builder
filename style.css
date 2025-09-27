@@ -227,3 +227,29 @@ canvas {
 	margin: 5px 0 0 0;
 	font-style: italic;
 }
+
+#resize-handle {
+	position: absolute;
+	bottom: 5px;
+	right: 5px;
+	width: 15px;
+	height: 15px;
+	cursor: se-resize;
+	z-index: 12;
+	opacity: 0.7;
+	background-image:
+		linear-gradient(135deg, transparent 45%, #aaa 45%, #aaa 55%, transparent 55%),
+		linear-gradient(135deg, transparent 65%, #aaa 65%, #aaa 75%, transparent 75%);
+	background-repeat: no-repeat;
+	background-position: bottom right;
+}
+
+#resize-handle:hover {
+	bottom: 4px;
+	right: 4px;
+	opacity: 1;
+	background-image:
+		linear-gradient(135deg, transparent 45%, #aaa 45%, #aaa 50%, transparent 45%),
+		linear-gradient(135deg, transparent 70%, #aaa 65%, #aaa 75%, transparent 65%);
+	transition: all 0.4s ease-out;
+}
