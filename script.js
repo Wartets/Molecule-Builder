@@ -57,6 +57,8 @@ const dragPlane = new THREE.Plane();
 const dragOffset = new THREE.Vector3();
 const intersectionPoint = new THREE.Vector3();
 
+let moleculeInfoDiv, moleculeFormulaSpan, moleculeNameSpan;
+
 function init() {
 	scene = new THREE.Scene();
 	scene.background = new THREE.Color(0x111111);
@@ -76,8 +78,14 @@ function init() {
 	controls.screenSpacePanning = false;
 	controls.minDistance = 2;
 	controls.maxDistance = 50;
+
+	moleculeInfoDiv = document.getElementById('molecule-info');
+	moleculeFormulaSpan = document.getElementById('molecule-formula');
+	moleculeNameSpan = document.getElementById('molecule-name');
+
 	populatePeriodicTable();
 	updatePeriodicTableState();
+	updateMoleculeInfo();
 	initUI();
 	initEventListeners();
 	window.addEventListener('resize', onWindowResize, false);
@@ -217,6 +225,7 @@ function incrementBondOrder(atom1, atom2) {
 		if (getBondOrderSum(atom1) < atom1.data.maxBonds && getBondOrderSum(atom2) < atom2.data.maxBonds) {
 			bond.order = Math.min(3, bond.order + 1);
 			updatePeriodicTableState();
+			updateMoleculeInfo();
 		}
 	}
 }
@@ -275,6 +284,7 @@ function deleteAtom(atomToDelete) {
 		resetSimulation();
 	} else {
 		updatePeriodicTableState();
+		updateMoleculeInfo();
 	}
 }
 
@@ -474,6 +484,7 @@ function addAtom(data, position) {
 	atom.mesh.position.copy(atom.position);
 	atoms.push(atom);
 	scene.add(mesh);
+	updateMoleculeInfo();
 	return atom;
 }
 
@@ -484,6 +495,7 @@ function placeAtom(newData, targetAtom) {
 	updateAtomGeometry(targetAtom);
 	updateAtomGeometry(newAtom);
 	updatePeriodicTableState();
+	updateMoleculeInfo();
 }
 
 function getIdealBondLength(atom1, atom2, order) {
@@ -575,7 +587,7 @@ function getNewAtomPosition(targetAtom, newAtom) {
 	const ligands = targetAtom.bonds.map(b => (b.atom1 === targetAtom ? b.atom2 : b.atom1));
 	const futureStericNumber = ligands.length + 1 + getLonePairs(targetAtom);
 	const idealDirections = ELECTRON_GEOMETRIES[futureStericNumber] || ELECTRON_GEOMETRIES[4];
-	
+
 	let rotation = new THREE.Quaternion();
 	if (ligands.length > 0) {
 		const actualDir = new THREE.Vector3().subVectors(ligands[0].position, targetAtom.position).normalize();
@@ -589,10 +601,10 @@ function getNewAtomPosition(targetAtom, newAtom) {
 		const rot2 = new THREE.Quaternion().setFromAxisAngle(axis, angle);
 		rotation.premultiply(rot2);
 	}
-	
+
 	const usedDirections = ligands.map(l => new THREE.Vector3().subVectors(l.position, targetAtom.position).normalize());
 	const rotatedIdeals = idealDirections.map(d => d.clone().applyQuaternion(rotation));
-	
+
 	let bestNewDirection = null;
 	let maxMinDist = -1;
 
@@ -611,7 +623,7 @@ function getNewAtomPosition(targetAtom, newAtom) {
 			bestNewDirection = idealDir;
 		}
 	});
-	
+
 	bestNewDirection = bestNewDirection || rotatedIdeals[ligands.length];
 	const idealLength = getIdealBondLength(targetAtom, newAtom, 1);
 	return new THREE.Vector3().copy(targetAtom.position).add(bestNewDirection.multiplyScalar(idealLength));
@@ -712,6 +724,84 @@ function resetSimulation() {
 	draggedAtom = null;
 	atomForBonding = null;
 	updatePeriodicTableState();
+	updateMoleculeInfo();
+}
+
+function updateMoleculeInfo() {
+	if (atoms.length === 0) {
+		moleculeInfoDiv.classList.remove('visible');
+		return;
+	}
+
+	const composition = atoms.reduce((acc, atom) => {
+		const symbol = atom.data.symbol;
+		acc[symbol] = (acc[symbol] || 0) + 1;
+		return acc;
+	}, {});
+
+	moleculeFormulaSpan.innerHTML = generateFormula(composition);
+	moleculeNameSpan.textContent = generateName(composition);
+	moleculeInfoDiv.classList.add('visible');
+}
+
+function generateFormula(composition) {
+	const symbols = Object.keys(composition);
+	symbols.sort((a, b) => {
+		if (a === 'C' && b !== 'C') return -1;
+		if (b === 'C' && a !== 'C') return 1;
+		if (a === 'H' && b !== 'H') return symbols.includes('C') ? -1 : a.localeCompare(b);
+		if (b === 'H' && a !== 'H') return symbols.includes('C') ? 1 : a.localeCompare(b);
+		return a.localeCompare(b);
+	});
+
+	return symbols.map(symbol => {
+		const count = composition[symbol];
+		return count > 1 ? `${symbol}<sub>${count}</sub>` : symbol;
+	}).join('');
+}
+
+function generateName(composition) {
+	const GREEK_PREFIXES = { 1: 'mono', 2: 'di', 3: 'tri', 4: 'tetra', 5: 'penta', 6: 'hexa', 7: 'hepta', 8: 'octa', 9: 'nona', 10: 'deca' };
+	const IDE_SUFFIXES = {
+		'Oxygen': 'oxide', 'Hydrogen': 'hydride', 'Carbon': 'carbide', 'Nitrogen': 'nitride',
+		'Phosphorus': 'phosphide', 'Sulfur': 'sulfide', 'Chlorine': 'chloride', 'Fluorine': 'fluoride',
+		'Bromine': 'bromide', 'Iodine': 'iodide'
+	};
+
+	const symbols = Object.keys(composition);
+
+	if (symbols.length === 1) {
+		const count = composition[symbols[0]];
+		const elementData = elementsData.find(el => el.symbol === symbols[0]);
+		if (count === 1) return elementData.name;
+		const prefix = GREEK_PREFIXES[count] || '';
+		return `${prefix.charAt(0).toUpperCase() + prefix.slice(1)}${elementData.name.toLowerCase()}`;
+	}
+
+	if (symbols.length === 2) {
+		const el1_data = elementsData.find(el => el.symbol === symbols[0]);
+		const el2_data = elementsData.find(el => el.symbol === symbols[1]);
+
+		const [first, second] = (el1_data.electronegativity < el2_data.electronegativity) ? [el1_data, el2_data] : [el2_data, el1_data];
+
+		const count1 = composition[first.symbol];
+		const count2 = composition[second.symbol];
+
+		const prefix1 = (GREEK_PREFIXES[count1] && count1 > 1) ? GREEK_PREFIXES[count1] : '';
+		let prefix2 = GREEK_PREFIXES[count2] || '';
+		
+		if (prefix2.endsWith('a') && (second.name.startsWith('O') || second.name.startsWith('A'))) {
+			prefix2 = prefix2.slice(0, -1);
+		}
+
+		const name1 = first.name;
+		const name2_root = IDE_SUFFIXES[second.name] || (second.name.toLowerCase().slice(0, -2) + 'ide');
+
+		const finalName = `${prefix1}${name1.toLowerCase()} ${prefix2}${name2_root}`;
+		return finalName.charAt(0).toUpperCase() + finalName.slice(1);
+	}
+
+	return "...";
 }
 
 function onWindowResize() {
@@ -741,8 +831,8 @@ function animate() {
 		updatePhysics(deltaTime);
 		updateBondMeshes();
 	} else {
-        updateBondMeshes();
-    }
+		updateBondMeshes();
+	}
 
 	controls.update();
 	renderer.render(scene, camera);

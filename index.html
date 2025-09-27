@@ -1,13 +1,18 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="icon" href="https://wartets.github.io/N-Body-Problem/image/browser-icon.png">
-	<title>Constructeur de Molécules 3D</title>
+	<title>3D Molecule Builder</title>
 	<link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+	<div id="molecule-info">
+		<h1 id="molecule-formula"></h1>
+		<p id="molecule-name"></p>
+	</div>
 
 	<button id="settings-icon" class="hidden">
 		<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
@@ -17,7 +22,7 @@
 
 	<div id="ui-container">
 		<div class="header">
-			<span>Tableau Périodique</span>
+			<span>Periodic table</span>
 			<button id="toggle-button">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
 					<path d="M19.829 12.001c0-1.54-.423-2.981-1.188-4.223l1.854-1.854a.502.502 0 0 0 0-.707l-1.414-1.414a.502.502 0 0 0-.707 0l-1.854 1.854c-1.242-.765-2.683-1.188-4.223-1.188s-2.981.423-4.223 1.188L5.92 3.777a.502.502 0 0 0-.707 0L3.799 5.191a.502.502 0 0 0 0 .707l1.854 1.854c-.765 1.242-1.188 2.683-1.188 4.223s.423 2.981 1.188 4.223l-1.854 1.854a.502.502 0 0 0 0 .707l1.414 1.414a.502.502 0 0 0 .707 0l1.854-1.854c1.242.765 2.683 1.188 4.223 1.188s2.981-.423 4.223-1.188l1.854 1.854a.502.502 0 0 0 .707 0l1.414-1.414a.502.502 0 0 0 0-.707l-1.854-1.854c.765-1.242 1.188-2.683 1.188-4.223zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/>
@@ -26,7 +31,7 @@
 		</div>
 		<div id="periodic-table"></div>
 		<div class="controls-info">
-			<button id="reset-button">Réinitialiser</button>
+			<button id="reset-button">Reset</button>
 		</div>
 	</div>
 
