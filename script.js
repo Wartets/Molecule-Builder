@@ -1,31 +1,26 @@
+/* Structure d'exemple du tableau pour comprendre les appels et le contenu
 const elementsData = [
-	{ number: 1, symbol: 'H', maxBonds: 1, row: 1, col: 1, color: 0xFFFFFF, radius: 0.35 },
-	{ number: 2, symbol: 'He', maxBonds: 0, row: 1, col: 18, color: 0xD4BFFF, radius: 0.31 },
-	{ number: 3, symbol: 'Li', maxBonds: 1, row: 2, col: 1, color: 0xB5FF00, radius: 1.45 },
-	{ number: 4, symbol: 'Be', maxBonds: 2, row: 2, col: 2, color: 0x82D99C, radius: 1.05 },
-	{ number: 5, symbol: 'B', maxBonds: 3, row: 2, col: 13, color: 0xFFC780, radius: 0.85 },
-	{ number: 6, symbol: 'C', maxBonds: 4, row: 2, col: 14, color: 0x909090, radius: 0.70 },
-	{ number: 7, symbol: 'N', maxBonds: 3, row: 2, col: 15, color: 0x3050F8, radius: 0.65 },
-	{ number: 8, symbol: 'O', maxBonds: 2, row: 2, col: 16, color: 0xFF0D0D, radius: 0.60 },
-	{ number: 9, symbol: 'F', maxBonds: 1, row: 2, col: 17, color: 0x90E050, radius: 0.50 },
-	{ number: 10, symbol: 'Ne', maxBonds: 0, row: 2, col: 18, color: 0x9E7AFF, radius: 0.38 },
-	{ number: 11, symbol: 'Na', maxBonds: 1, row: 3, col: 1, color: 0xAB5CF2, radius: 1.80 },
-	{ number: 12, symbol: 'Mg', maxBonds: 2, row: 3, col: 2, color: 0x8AFF00, radius: 1.50 },
-	{ number: 13, symbol: 'Al', maxBonds: 3, row: 3, col: 13, color: 0xBFA6A6, radius: 1.25 },
-	{ number: 14, symbol: 'Si', maxBonds: 4, row: 3, col: 14, color: 0xF0C8A0, radius: 1.10 },
-	{ number: 15, symbol: 'P', maxBonds: 3, row: 3, col: 15, color: 0xFF8000, radius: 1.00 },
-	{ number: 16, symbol: 'S', maxBonds: 2, row: 3, col: 16, color: 0xFFFF30, radius: 1.00 },
-	{ number: 17, symbol: 'Cl', maxBonds: 1, row: 3, col: 17, color: 0x1FF01F, radius: 1.00 },
-	{ number: 18, symbol: 'Ar', maxBonds: 0, row: 3, col: 18, color: 0x80D1F5, radius: 0.71 },
-	{ number: 19, symbol: 'K', maxBonds: 1, row: 4, col: 1, color: 0x8F40D4, radius: 2.20 },
-	{ number: 20, symbol: 'Ca', maxBonds: 2, row: 4, col: 2, color: 0x3DFF00, radius: 1.80 },
-	{ number: 21, symbol: 'Sc', maxBonds: 3, row: 4, col: 3, color: 0xE6E6E6, radius: 1.60 },
-	{ number: 22, symbol: 'Ti', maxBonds: 4, row: 4, col: 4, color: 0xBFC2C7, radius: 1.40 },
-	{ number: 23, symbol: 'V', maxBonds: 5, row: 4, col: 5, color: 0xA6A6AB, radius: 1.35 },
-	{ number: 24, symbol: 'Cr', maxBonds: 6, row: 4, col: 6, color: 0x8A99C7, radius: 1.40 },
-	{ number: 25, symbol: 'Mn', maxBonds: 7, row: 4, col: 7, color: 0x9C7AC7, radius: 1.40 },
-	{ number: 26, symbol: 'Fe', maxBonds: 3, row: 4, col: 8, color: 0xE06633, radius: 1.40 },
-];
+	{ number: 1, symbol: 'H', name: 'Hydrogen', maxBonds: 1, row: 1, col: 1, color: 0xFFFFFF, radius: 0.37, atomicMass: 1.008, electronegativity: 2.20, category: 'diatomic-nonmetal' }
+]; */
+
+const GEOMETRIES = {
+	1: [new THREE.Vector3(1, 0, 0)],
+	2: [
+		new THREE.Vector3(1, 0, 0),
+		new THREE.Vector3(-1, 0, 0)
+	],
+	3: [
+		new THREE.Vector3(1, 0, 0),
+		new THREE.Vector3(-0.5, Math.sqrt(3) / 2, 0),
+		new THREE.Vector3(-0.5, -Math.sqrt(3) / 2, 0)
+	],
+	4: [
+		new THREE.Vector3(1, 1, 1).normalize(),
+		new THREE.Vector3(-1, -1, 1).normalize(),
+		new THREE.Vector3(-1, 1, -1).normalize(),
+		new THREE.Vector3(1, -1, -1).normalize()
+	]
+};
 
 let scene, camera, renderer, controls;
 let atoms = [];
@@ -186,19 +181,28 @@ function handleBondCreation(targetAtom) {
 		atomForBonding.mesh.material.emissive.setHex(0x005588);
 	} else {
 		if (atomForBonding !== targetAtom) {
-			incrementBondOrder(atomForBonding, targetAtom);
+			const existingBond = bonds.find(b => (b.atom1 === atomForBonding && b.atom2 === targetAtom) || (b.atom1 === targetAtom && b.atom2 === atomForBonding));
+			if (existingBond) {
+				incrementBondOrder(atomForBonding, targetAtom);
+			} else {
+				createBond(atomForBonding, targetAtom);
+				updateAtomGeometry(atomForBonding);
+				updateAtomGeometry(targetAtom);
+			}
 		}
 		atomForBonding.mesh.material.emissive.setHex(0x000000);
 		atomForBonding = null;
 	}
 }
 
+
 function incrementBondOrder(atom1, atom2) {
 	const bond = bonds.find(b => (b.atom1 === atom1 && b.atom2 === atom2) || (b.atom1 === atom2 && b.atom2 === atom1));
 	if (bond) {
 		if (getCurrentValence(atom1) < atom1.data.maxBonds && getCurrentValence(atom2) < atom2.data.maxBonds) {
-			bond.order++;
-			updateBondMeshes();
+			bond.order = Math.min(3, bond.order + 1);
+			updateAtomGeometry(atom1);
+			updateAtomGeometry(atom2);
 			updatePeriodicTableState();
 		}
 	}
@@ -238,20 +242,26 @@ function deselectAllAtoms() {
 }
 
 function deleteAtom(atomToDelete) {
+	const neighbors = [];
 	const bondsToRemove = bonds.filter(b => b.atom1 === atomToDelete || b.atom2 === atomToDelete);
+
 	bondsToRemove.forEach(bond => {
 		bond.meshes.forEach(m => scene.remove(m));
 		const otherAtom = bond.atom1 === atomToDelete ? bond.atom2 : bond.atom1;
+		neighbors.push(otherAtom);
 		otherAtom.bonds = otherAtom.bonds.filter(b => b !== bond);
 		bonds = bonds.filter(b => b !== bond);
 	});
+
 	scene.remove(atomToDelete.mesh);
 	atoms = atoms.filter(a => a !== atomToDelete);
+
+	neighbors.forEach(neighbor => updateAtomGeometry(neighbor));
+
 	if (atoms.length === 0) {
 		resetSimulation();
 	} else {
 		updatePeriodicTableState();
-		updateAllBondsValence();
 	}
 }
 
@@ -332,6 +342,8 @@ function populatePeriodicTable() {
 		div.className = 'element';
 		div.style.gridRow = el.row;
 		div.style.gridColumn = el.col;
+		const hexColor ='#'+ el.color.toString(16).padStart(6,'0');
+		div.style.color = hexColor;
 		div.innerHTML = `<span class="number">${el.number}</span>${el.symbol}`;
 		div.dataset.symbol = el.symbol;
 		div.addEventListener('click', () => prepareToAddAtom(el.symbol));
@@ -370,10 +382,6 @@ function createPlacementHelpers(targetAtoms, newData) {
 	cancelPlacement(true);
 	controls.enabled = false;
 
-	const centerOfMass = new THREE.Vector3();
-	atoms.forEach(a => centerOfMass.add(a.position));
-	centerOfMass.divideScalar(atoms.length);
-
 	targetAtoms.forEach(target => {
 		const helperGeometry = new THREE.SphereGeometry(newData.radius, 16, 16);
 		const helperMaterial = new THREE.MeshStandardMaterial({
@@ -384,12 +392,9 @@ function createPlacementHelpers(targetAtoms, newData) {
 		});
 		const mesh = new THREE.Mesh(helperGeometry, helperMaterial);
 
-		let direction = new THREE.Vector3().subVectors(target.position, centerOfMass).normalize();
-		if (direction.lengthSq() < 0.1) {
-			direction.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-		}
-		const distance = target.data.radius + newData.radius;
-		mesh.position.copy(target.position).add(direction.multiplyScalar(distance * 0.8));
+		const tempNewAtom = { data: newData };
+		const position = getNewAtomPosition(target, tempNewAtom);
+		mesh.position.copy(position);
 
 		placementHelpers.push({ mesh, targetAtom: target });
 		scene.add(mesh);
@@ -439,20 +444,83 @@ function addAtom(data, position) {
 }
 
 function placeAtom(newData, targetAtom) {
-	const centerOfMass = new THREE.Vector3();
-	atoms.forEach(a => centerOfMass.add(a.position));
-	centerOfMass.divideScalar(atoms.length);
-
-	let direction = new THREE.Vector3().subVectors(targetAtom.position, centerOfMass).normalize();
-	if (direction.lengthSq() < 0.1) {
-		direction.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-	}
-	const distance = targetAtom.data.radius + newData.radius;
-	const newPosition = new THREE.Vector3().copy(targetAtom.position).add(direction.multiplyScalar(distance * 1.2));
+	const newPosition = getNewAtomPosition(targetAtom, { data: newData });
 	const newAtom = addAtom(newData, newPosition);
 	createBond(newAtom, targetAtom);
-	updateAllBondsValence();
+	updateAtomGeometry(targetAtom);
 	updatePeriodicTableState();
+}
+
+function getIdealBondLength(atom1, atom2, order) {
+	return atom1.data.radius + atom2.data.radius - (order - 1) * 0.15;
+}
+
+function updateAtomGeometry(centralAtom) {
+	const ligands = centralAtom.bonds.map(bond => bond.atom1 === centralAtom ? bond.atom2 : bond.atom1);
+	const n = ligands.length;
+
+	if (n === 0) return;
+
+	if (n === 1) {
+		const ligand = ligands[0];
+		const bond = centralAtom.bonds[0];
+		const idealLength = getIdealBondLength(centralAtom, ligand, bond.order);
+		const direction = new THREE.Vector3().subVectors(ligand.position, centralAtom.position).normalize();
+		ligand.position.copy(centralAtom.position).add(direction.multiplyScalar(idealLength));
+		ligand.velocity.set(0, 0, 0);
+		return;
+	}
+
+	const idealDirections = GEOMETRIES[n] || GEOMETRIES[4];
+	if (!idealDirections) return;
+
+	const actualDirections = ligands.map(ligand =>
+		new THREE.Vector3().subVectors(ligand.position, centralAtom.position).normalize()
+	);
+
+	const q = new THREE.Quaternion();
+	const from = new THREE.Vector3(0, 0, 1);
+	q.setFromUnitVectors(from, actualDirections[0]);
+
+	const tempVec = idealDirections[1].clone().applyQuaternion(q);
+	const angle = tempVec.angleTo(actualDirections[1]);
+	const axis = new THREE.Vector3().crossVectors(tempVec, actualDirections[1]).normalize();
+
+	const q2 = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+	const finalQ = q2.multiply(q);
+
+	ligands.forEach((ligand, i) => {
+		const bond = centralAtom.bonds.find(b => (b.atom1 === ligand || b.atom2 === ligand));
+		const idealLength = getIdealBondLength(centralAtom, ligand, bond.order);
+		const newDirection = idealDirections[i].clone().applyQuaternion(finalQ);
+		ligand.position.copy(centralAtom.position).add(newDirection.multiplyScalar(idealLength));
+		ligand.velocity.set(0, 0, 0);
+	});
+}
+
+function getNewAtomPosition(targetAtom, newAtom) {
+	const ligands = targetAtom.bonds.map(b => (b.atom1 === targetAtom ? b.atom2 : b.atom1));
+	const n = ligands.length + 1;
+	const idealDirections = GEOMETRIES[n] || GEOMETRIES[4];
+
+	let rotation = new THREE.Quaternion();
+	if (ligands.length > 0) {
+		const actualDir = new THREE.Vector3().subVectors(ligands[0].position, targetAtom.position).normalize();
+		rotation.setFromUnitVectors(idealDirections[0], actualDir);
+	}
+
+	if (ligands.length > 1) {
+		const actualDir2 = new THREE.Vector3().subVectors(ligands[1].position, targetAtom.position).normalize();
+		const idealDir2Rotated = idealDirections[1].clone().applyQuaternion(rotation);
+		const angle = idealDir2Rotated.angleTo(actualDir2);
+		const axis = new THREE.Vector3().crossVectors(idealDir2Rotated, actualDir2).normalize();
+		const rot2 = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+		rotation.premultiply(rot2);
+	}
+
+	const newDirection = idealDirections[n - 1].clone().applyQuaternion(rotation);
+	const idealLength = getIdealBondLength(targetAtom, newAtom, 1);
+	return new THREE.Vector3().copy(targetAtom.position).add(newDirection.multiplyScalar(idealLength));
 }
 
 function createBond(atom1, atom2) {
@@ -465,27 +533,6 @@ function createBond(atom1, atom2) {
 		updateBondMeshes();
 	}
 }
-
-function updateAllBondsValence() {
-	let changed;
-	do {
-		changed = false;
-		bonds.forEach(bond => {
-			const { atom1, atom2 } = bond;
-			while (getCurrentValence(atom1) > atom1.data.maxBonds || getCurrentValence(atom2) > atom2.data.maxBonds) {
-				if (bond.order > 1) {
-					bond.order--;
-					changed = true;
-				} else {
-					break;
-				}
-			}
-		});
-	} while (changed);
-	updateBondMeshes();
-	updatePeriodicTableState();
-}
-
 
 function updatePhysics(deltaTime) {
 	if (atoms.length < 2) return;
@@ -508,7 +555,7 @@ function updatePhysics(deltaTime) {
 	}
 	bonds.forEach(bond => {
 		const { atom1, atom2, order } = bond;
-		const idealLength = atom1.data.radius + atom2.data.radius - (order - 1) * 0.15;
+		const idealLength = getIdealBondLength(atom1, atom2, order);
 		const delta = new THREE.Vector3().subVectors(atom1.position, atom2.position);
 		const distance = delta.length();
 		const displacement = distance - idealLength;
@@ -593,11 +640,13 @@ function animate() {
 		}
 	}
 
-	if (atoms.length > 0) {
+	if (atoms.length > 0 && !isPlacementModeActive) {
 		if (draggedAtom) draggedAtom.mesh.position.copy(draggedAtom.position);
 		updatePhysics(deltaTime);
 		updateBondMeshes();
-	}
+	} else {
+        updateBondMeshes();
+    }
 
 	controls.update();
 	renderer.render(scene, camera);
