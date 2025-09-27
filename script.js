@@ -1,3 +1,8 @@
+/* Structure d'exemple du tableau pour comprendre les appels et le contenu
+const elementsData = [
+	{ number: 1, symbol: 'H', name: 'Hydrogen', maxBonds: 1, row: 1, col: 1, color: 0xFFFFFF, radius: 0.37, atomicMass: 1.008, electronegativity: 2.20, category: 'diatomic-nonmetal' }
+]; */
+
 const ELECTRON_GEOMETRIES = {
 	2: [
 		new THREE.Vector3(1, 0, 0),
