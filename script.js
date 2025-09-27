@@ -1,10 +1,4 @@
-/* Structure d'exemple du tableau pour comprendre les appels et le contenu
-const elementsData = [
-	{ number: 1, symbol: 'H', name: 'Hydrogen', maxBonds: 1, row: 1, col: 1, color: 0xFFFFFF, radius: 0.37, atomicMass: 1.008, electronegativity: 2.20, category: 'diatomic-nonmetal' }
-]; */
-
-const GEOMETRIES = {
-	1: [new THREE.Vector3(1, 0, 0)],
+const ELECTRON_GEOMETRIES = {
 	2: [
 		new THREE.Vector3(1, 0, 0),
 		new THREE.Vector3(-1, 0, 0)
@@ -19,6 +13,21 @@ const GEOMETRIES = {
 		new THREE.Vector3(-1, -1, 1).normalize(),
 		new THREE.Vector3(-1, 1, -1).normalize(),
 		new THREE.Vector3(1, -1, -1).normalize()
+	],
+	5: [
+		new THREE.Vector3(0, 0, 1),
+		new THREE.Vector3(0, 0, -1),
+		new THREE.Vector3(1, 0, 0),
+		new THREE.Vector3(-0.5, Math.sqrt(3) / 2, 0),
+		new THREE.Vector3(-0.5, -Math.sqrt(3) / 2, 0)
+	],
+	6: [
+		new THREE.Vector3(0, 0, 1),
+		new THREE.Vector3(0, 0, -1),
+		new THREE.Vector3(1, 0, 0),
+		new THREE.Vector3(-1, 0, 0),
+		new THREE.Vector3(0, 1, 0),
+		new THREE.Vector3(0, -1, 0)
 	]
 };
 
@@ -186,9 +195,11 @@ function handleBondCreation(targetAtom) {
 				incrementBondOrder(atomForBonding, targetAtom);
 			} else {
 				createBond(atomForBonding, targetAtom);
-				updateAtomGeometry(atomForBonding);
-				updateAtomGeometry(targetAtom);
 			}
+			updateAtomGeometry(atomForBonding);
+			updateAtomGeometry(targetAtom);
+			atomForBonding.bonds.forEach(b => updateAtomGeometry(b.atom1 === atomForBonding ? b.atom2 : b.atom1));
+			targetAtom.bonds.forEach(b => updateAtomGeometry(b.atom1 === targetAtom ? b.atom2 : b.atom1));
 		}
 		atomForBonding.mesh.material.emissive.setHex(0x000000);
 		atomForBonding = null;
@@ -199,10 +210,8 @@ function handleBondCreation(targetAtom) {
 function incrementBondOrder(atom1, atom2) {
 	const bond = bonds.find(b => (b.atom1 === atom1 && b.atom2 === atom2) || (b.atom1 === atom2 && b.atom2 === atom1));
 	if (bond) {
-		if (getCurrentValence(atom1) < atom1.data.maxBonds && getCurrentValence(atom2) < atom2.data.maxBonds) {
+		if (getBondOrderSum(atom1) < atom1.data.maxBonds && getBondOrderSum(atom2) < atom2.data.maxBonds) {
 			bond.order = Math.min(3, bond.order + 1);
-			updateAtomGeometry(atom1);
-			updateAtomGeometry(atom2);
 			updatePeriodicTableState();
 		}
 	}
@@ -307,12 +316,22 @@ function initUI() {
 	header.addEventListener('mousedown', onMouseDown);
 }
 
-function getCurrentValence(atom) {
+function getBondOrderSum(atom) {
 	return atom.bonds.reduce((acc, bond) => acc + bond.order, 0);
 }
 
+function getLonePairs(atom) {
+	const bondOrderSum = getBondOrderSum(atom);
+	return Math.max(0, Math.floor((atom.data.valenceElectrons - bondOrderSum) / 2));
+}
+
+function getStericNumber(atom) {
+	const lonePairs = getLonePairs(atom);
+	return atom.bonds.length + lonePairs;
+}
+
 function updatePeriodicTableState() {
-	const moleculeHasOpenSlots = atoms.some(atom => getCurrentValence(atom) < atom.data.maxBonds);
+	const moleculeHasOpenSlots = atoms.some(atom => getBondOrderSum(atom) < atom.data.maxBonds);
 	const elementsInTable = document.querySelectorAll('.element');
 
 	elementsInTable.forEach(elDiv => {
@@ -342,7 +361,7 @@ function populatePeriodicTable() {
 		div.className = 'element';
 		div.style.gridRow = el.row;
 		div.style.gridColumn = el.col;
-		const hexColor ='#'+ el.color.toString(16).padStart(6,'0');
+		const hexColor = '#' + el.color.toString(16).padStart(6, '0');
 		div.style.color = hexColor;
 		div.innerHTML = `<span class="number">${el.number}</span>${el.symbol}`;
 		div.dataset.symbol = el.symbol;
@@ -362,7 +381,7 @@ function prepareToAddAtom(symbol) {
 		return;
 	}
 
-	const possibleTargets = atoms.filter(a => getCurrentValence(a) < a.data.maxBonds);
+	const possibleTargets = atoms.filter(a => getBondOrderSum(a) < a.data.maxBonds);
 
 	if (possibleTargets.length === 0) {
 		return;
@@ -448,19 +467,22 @@ function placeAtom(newData, targetAtom) {
 	const newAtom = addAtom(newData, newPosition);
 	createBond(newAtom, targetAtom);
 	updateAtomGeometry(targetAtom);
+	updateAtomGeometry(newAtom);
 	updatePeriodicTableState();
 }
 
 function getIdealBondLength(atom1, atom2, order) {
-	return atom1.data.radius + atom2.data.radius - (order - 1) * 0.15;
+	return atom1.data.radius + atom2.data.radius - (order - 1) * 0.1;
 }
 
 function updateAtomGeometry(centralAtom) {
 	const ligands = centralAtom.bonds.map(bond => bond.atom1 === centralAtom ? bond.atom2 : bond.atom1);
 	const n = ligands.length;
+	const stericNumber = getStericNumber(centralAtom);
 
-	if (n === 0) return;
+	if (n === 0 || !ELECTRON_GEOMETRIES[stericNumber]) return;
 
+	let idealDirections = [...ELECTRON_GEOMETRIES[stericNumber]];
 	if (n === 1) {
 		const ligand = ligands[0];
 		const bond = centralAtom.bonds[0];
@@ -471,44 +493,79 @@ function updateAtomGeometry(centralAtom) {
 		return;
 	}
 
-	const idealDirections = GEOMETRIES[n] || GEOMETRIES[4];
-	if (!idealDirections) return;
-
 	const actualDirections = ligands.map(ligand =>
 		new THREE.Vector3().subVectors(ligand.position, centralAtom.position).normalize()
 	);
 
-	const q = new THREE.Quaternion();
-	const from = new THREE.Vector3(0, 0, 1);
-	q.setFromUnitVectors(from, actualDirections[0]);
+	let bestRotation = new THREE.Quaternion();
+	let minScore = Infinity;
 
-	const tempVec = idealDirections[1].clone().applyQuaternion(q);
-	const angle = tempVec.angleTo(actualDirections[1]);
-	const axis = new THREE.Vector3().crossVectors(tempVec, actualDirections[1]).normalize();
+	for (let i = 0; i < idealDirections.length; i++) {
+		const q = new THREE.Quaternion().setFromUnitVectors(idealDirections[i], actualDirections[0]);
+		for (let j = 0; j < 12; j++) {
+			const axis = actualDirections[0].clone();
+			const q_roll = new THREE.Quaternion().setFromAxisAngle(axis, (j / 12) * Math.PI * 2);
+			const finalQ = q_roll.multiply(q);
 
-	const q2 = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-	const finalQ = q2.multiply(q);
+			let currentScore = 0;
+			const remainingIdeal = idealDirections.filter((v, index) => index !== i).map(v => v.clone().applyQuaternion(finalQ));
+			const remainingActual = actualDirections.slice(1);
 
-	ligands.forEach((ligand, i) => {
-		const bond = centralAtom.bonds.find(b => (b.atom1 === ligand || b.atom2 === ligand));
-		const idealLength = getIdealBondLength(centralAtom, ligand, bond.order);
-		const newDirection = idealDirections[i].clone().applyQuaternion(finalQ);
-		ligand.position.copy(centralAtom.position).add(newDirection.multiplyScalar(idealLength));
-		ligand.velocity.set(0, 0, 0);
+			remainingActual.forEach(actualVec => {
+				let bestMatchDist = Infinity;
+				remainingIdeal.forEach(idealVec => {
+					bestMatchDist = Math.min(bestMatchDist, actualVec.distanceTo(idealVec));
+				});
+				currentScore += bestMatchDist;
+			});
+
+			if (currentScore < minScore) {
+				minScore = currentScore;
+				bestRotation = finalQ;
+			}
+		}
+	}
+
+	const rotatedIdealDirections = idealDirections.map(dir => dir.clone().applyQuaternion(bestRotation));
+	const usedIndices = new Set();
+
+	ligands.forEach(ligand => {
+		let bestDirection = null;
+		let bestIndex = -1;
+		let minDistance = Infinity;
+		const currentDirection = new THREE.Vector3().subVectors(ligand.position, centralAtom.position).normalize();
+
+		rotatedIdealDirections.forEach((idealDir, i) => {
+			if (!usedIndices.has(i)) {
+				const d = currentDirection.distanceTo(idealDir);
+				if (d < minDistance) {
+					minDistance = d;
+					bestDirection = idealDir;
+					bestIndex = i;
+				}
+			}
+		});
+
+		if (bestIndex !== -1) {
+			usedIndices.add(bestIndex);
+			const bond = centralAtom.bonds.find(b => (b.atom1 === ligand || b.atom2 === ligand));
+			const idealLength = getIdealBondLength(centralAtom, ligand, bond.order);
+			ligand.position.copy(centralAtom.position).add(bestDirection.multiplyScalar(idealLength));
+			ligand.velocity.set(0, 0, 0);
+		}
 	});
 }
 
 function getNewAtomPosition(targetAtom, newAtom) {
 	const ligands = targetAtom.bonds.map(b => (b.atom1 === targetAtom ? b.atom2 : b.atom1));
-	const n = ligands.length + 1;
-	const idealDirections = GEOMETRIES[n] || GEOMETRIES[4];
-
+	const futureStericNumber = ligands.length + 1 + getLonePairs(targetAtom);
+	const idealDirections = ELECTRON_GEOMETRIES[futureStericNumber] || ELECTRON_GEOMETRIES[4];
+	
 	let rotation = new THREE.Quaternion();
 	if (ligands.length > 0) {
 		const actualDir = new THREE.Vector3().subVectors(ligands[0].position, targetAtom.position).normalize();
 		rotation.setFromUnitVectors(idealDirections[0], actualDir);
 	}
-
 	if (ligands.length > 1) {
 		const actualDir2 = new THREE.Vector3().subVectors(ligands[1].position, targetAtom.position).normalize();
 		const idealDir2Rotated = idealDirections[1].clone().applyQuaternion(rotation);
@@ -517,11 +574,34 @@ function getNewAtomPosition(targetAtom, newAtom) {
 		const rot2 = new THREE.Quaternion().setFromAxisAngle(axis, angle);
 		rotation.premultiply(rot2);
 	}
+	
+	const usedDirections = ligands.map(l => new THREE.Vector3().subVectors(l.position, targetAtom.position).normalize());
+	const rotatedIdeals = idealDirections.map(d => d.clone().applyQuaternion(rotation));
+	
+	let bestNewDirection = null;
+	let maxMinDist = -1;
 
-	const newDirection = idealDirections[n - 1].clone().applyQuaternion(rotation);
+	rotatedIdeals.forEach(idealDir => {
+		let minDistToUsed = Infinity;
+		if (usedDirections.length > 0) {
+			usedDirections.forEach(usedDir => {
+				minDistToUsed = Math.min(minDistToUsed, idealDir.distanceTo(usedDir));
+			});
+		} else {
+			minDistToUsed = 0;
+		}
+
+		if(minDistToUsed > maxMinDist) {
+			maxMinDist = minDistToUsed;
+			bestNewDirection = idealDir;
+		}
+	});
+	
+	bestNewDirection = bestNewDirection || rotatedIdeals[ligands.length];
 	const idealLength = getIdealBondLength(targetAtom, newAtom, 1);
-	return new THREE.Vector3().copy(targetAtom.position).add(newDirection.multiplyScalar(idealLength));
+	return new THREE.Vector3().copy(targetAtom.position).add(bestNewDirection.multiplyScalar(idealLength));
 }
+
 
 function createBond(atom1, atom2) {
 	const existingBond = bonds.find(b => (b.atom1 === atom1 && b.atom2 === atom2) || (b.atom1 === atom2 && b.atom2 === atom1));
@@ -641,7 +721,9 @@ function animate() {
 	}
 
 	if (atoms.length > 0 && !isPlacementModeActive) {
-		if (draggedAtom) draggedAtom.mesh.position.copy(draggedAtom.position);
+		if (draggedAtom) {
+			draggedAtom.mesh.position.copy(draggedAtom.position);
+		}
 		updatePhysics(deltaTime);
 		updateBondMeshes();
 	} else {
