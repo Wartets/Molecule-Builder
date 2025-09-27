@@ -761,184 +761,217 @@ function generateFormula(composition) {
 }
 
 function generateName(composition) {
-	const GREEK_PREFIXES = { 1: 'mono', 2: 'di', 3: 'tri', 4: 'tetra', 5: 'penta', 6: 'hexa', 7: 'hepta', 8: 'octa', 9: 'nona', 10: 'deca', 11: 'undeca', 12: 'dodeca' };
-	const ORGANIC_PREFIXES = { 1: 'meth', 2: 'eth', 3: 'prop', 4: 'but', 5: 'pent', 6: 'hex', 7: 'hept', 8: 'oct', 9: 'non', 10: 'dec' };
-	const IDE_SUFFIXES = { 'Oxygen': 'oxide', 'Hydrogen': 'hydride', 'Carbon': 'carbide', 'Nitrogen': 'nitride', 'Phosphorus': 'phosphide', 'Sulfur': 'sulfide', 'Fluorine': 'fluoride', 'Chlorine': 'chloride', 'Bromine': 'bromide', 'Iodine': 'iodide', 'Selenium': 'selenide' };
+	if (typeof elementsData === 'undefined' || !Array.isArray(elementsData)) {
+		throw new Error("Missing or invalid 'elementsData'.");
+	}
 
-	const createCanonicalFormula = (comp) => {
-		const symbols = Object.keys(comp);
-		const hasC = symbols.includes('C');
-		symbols.sort((a, b) => {
-			if (hasC) {
-				if (a === 'C') return -1;
-				if (b === 'C') return 1;
-				if (a === 'H') return -1;
-				if (b === 'H') return 1;
-			}
-			return a.localeCompare(b);
-		});
-		return symbols.map(s => `${s}${comp[s] > 1 ? comp[s] : ''}`).join('');
+	const CHEMICAL_DATA = {
+		GREEK_PREFIXES: { 1: '', 2: 'di', 3: 'tri', 4: 'tetra', 5: 'penta', 6: 'hexa', 7: 'hepta', 8: 'octa', 9: 'nona', 10: 'deca' },
+		ORGANIC_PREFIXES: { 1: 'meth', 2: 'eth', 3: 'prop', 4: 'but', 5: 'pent', 6: 'hex', 7: 'hept', 8: 'oct', 9: 'non', 10: 'dec' },
+		ELEMENT_ROOTS: { 'O': 'ox', 'H': 'hydr', 'C': 'carb', 'N': 'nitr', 'P': 'phosph', 'S': 'sulf', 'F': 'fluor', 'Cl': 'chlor', 'Br': 'brom', 'I': 'iod', 'Se': 'selen', 'As': 'arsen', 'Te': 'tellur', 'B': 'bor', 'Si': 'silic' },
+		COMMON_OXIDATION_STATES: { 'Fe': [3, 2], 'Cu': [2, 1], 'Hg': [2, 1], 'Sn': [4, 2], 'Pb': [4, 2], 'Co': [3, 2], 'Ni': [2, 3], 'Au': [3, 1], 'Mn': [2, 3, 4, 6, 7], 'Cr': [3, 6, 2] },
+		ROMAN_NUMERALS: { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII' }
 	};
 	
-	const formula = createCanonicalFormula(composition);
-
-	const COMMON_MOLECULES = {
-		'H2O': 'Water',
-		'CO2': 'Carbon dioxide',
-		'CO': 'Carbon monoxide',
-		'NH3': 'Ammonia',
-		'CH4': 'Methane',
-		'H2O2': 'Hydrogen peroxide',
-		'O3': 'Ozone',
-		'N2O': 'Nitrous oxide',
-		'NO2': 'Nitrogen dioxide',
-		'NO': 'Nitric oxide',
-		'SO2': 'Sulfur dioxide',
-		'SO3': 'Sulfur trioxide',
-		'H2S': 'Hydrogen sulfide',
-		'HCl': 'Hydrogen chloride',
-		'C6H6': 'Benzene',
-		'C2H5OH': 'Ethanol',
-		'CH3OH': 'Methanol',
-		'CH3COOH': 'Acetic acid',
-		'HCHO': 'Formaldehyde',
-		'C3H8': 'Propane',
-		'C4H10': 'Butane',
-		'C2H6': 'Ethane',
-		'C2H4': 'Ethene',
-		'C2H2': 'Ethyne'
+	const KNOWN_COMPOUNDS = {
+		'H2O': 'Water', 'H2O2': 'Hydrogen Peroxide', 'O3': 'Ozone',
+		'CO2': 'Carbon Dioxide', 'CO': 'Carbon Monoxide', 'CS2': 'Carbon Disulfide',
+		'NH3': 'Ammonia', 'N2H4': 'Hydrazine', 'PH3': 'Phosphine', 'AsH3': 'Arsine', 'B2H6': 'Diborane',
+		'NO': 'Nitric Oxide', 'NO2': 'Nitrogen Dioxide', 'N2O': 'Nitrous Oxide', 'N2O4': 'Dinitrogen Tetroxide',
+		'SO2': 'Sulfur Dioxide', 'SO3': 'Sulfur Trioxide', 'H2S': 'Hydrogen Sulfide', 'SF6': 'Sulfur Hexafluoride',
+		'HCl': 'Hydrogen Chloride', 'HF': 'Hydrogen Fluoride', 'HBr': 'Hydrogen Bromide', 'HI': 'Hydrogen Iodide', 'HCN': 'Hydrogen Cyanide',
+		'SiO2': 'Silicon Dioxide', 'SiH4': 'Silane',
+		'CH4': 'Methane', 'C2H6': 'Ethane', 'C3H8': 'Propane', 'C4H10': 'Butane',
+		'C2H4': 'Ethene', 'C3H6': 'Propene', 'C4H8': 'Butene',
+		'C2H2': 'Ethyne', 'C3H4': 'Propyne', 'C4H6': 'Butyne',
+		'C6H6': 'Benzene', 'C8H10': 'Xylene', 'C7H8': 'Toluene'
 	};
 
-	if (COMMON_MOLECULES[formula]) {
-		return COMMON_MOLECULES[formula];
-	}
+	const POLYATOMIC_IONS = {
+		'H3O': { name: 'hydronium', charge: 1 }, 'NH4': { name: 'ammonium', charge: 1 },
+		'CH3COO': { name: 'acetate', charge: -1 }, 'C2H3O2': { name: 'acetate', charge: -1 }, 'CN': { name: 'cyanide', charge: -1 },
+		'CO3': { name: 'carbonate', charge: -2 }, 'HCO3': { name: 'bicarbonate', charge: -1 },
+		'C2O4': { name: 'oxalate', charge: -2 }, 'HC2O4': { name: 'bioxalate', charge: -1 },
+		'ClO': { name: 'hypochlorite', charge: -1 }, 'ClO2': { name: 'chlorite', charge: -1 }, 'ClO3': { name: 'chlorate', charge: -1 }, 'ClO4': { name: 'perchlorate', charge: -1 },
+		'CrO4': { name: 'chromate', charge: -2 }, 'Cr2O7': { name: 'dichromate', charge: -2 },
+		'MnO4': { name: 'permanganate', charge: -1 }, 'NO2': { name: 'nitrite', charge: -1 }, 'NO3': { name: 'nitrate', charge: -1 },
+		'OH': { name: 'hydroxide', charge: -1 }, 'O2': { name: 'peroxide', charge: -2 },
+		'PO3': { name: 'phosphite', charge: -3 }, 'PO4': { name: 'phosphate', charge: -3 },
+		'HPO4': { name: 'hydrogen phosphate', charge: -2 }, 'H2PO4': { name: 'dihydrogen phosphate', charge: -1 },
+		'SCN': { name: 'thiocyanate', charge: -1 }, 'SO3': { name: 'sulfite', charge: -2 }, 'SO4': { name: 'sulfate', charge: -2 },
+		'HSO3': { name: 'bisulfite', charge: -1 }, 'HSO4': { name: 'bisulfate', charge: -1 },
+		'S2O3': { name: 'thiosulfate', charge: -2 }
+	};
 
+	const getElement = (symbol) => elementsData.find(el => el.symbol === symbol);
+	
+	const getHillFormula = (comp) => {
+		const symbols = Object.keys(comp);
+		const hasC = symbols.includes('C');
+
+		const sortFunc = (a, b) => {
+			if (hasC) {
+				if (a === 'C') return -1; if (b === 'C') return 1;
+				if (a === 'H') return -1; if (b === 'H') return 1;
+			}
+			return a.localeCompare(b);
+		};
+
+		return symbols.sort(sortFunc)
+			.map(symbol => `${symbol}${comp[symbol] > 1 ? comp[symbol] : ''}`)
+			.join('');
+	};
+	
 	const symbols = Object.keys(composition);
-	const elementCount = symbols.length;
-
-	if (elementCount === 0) {
-		return "";
-	}
-
-	if (elementCount === 1) {
-		const symbol = symbols[0];
-		const count = composition[symbol];
-		const elementData = elementsData.find(el => el.symbol === symbol);
-		if (!elementData) return "Unknown Element";
-		if (count === 1) return elementData.name;
-		const prefix = (GREEK_PREFIXES[count] || 'poly').replace('mono', '');
-		return `${prefix.charAt(0).toUpperCase() + prefix.slice(1)}${elementData.name.toLowerCase()}`;
-	}
-
-	const nameBinaryInorganic = () => {
-		const elements = symbols.map(s => elementsData.find(el => el.symbol === s));
-		const [cation, anion] = elements.sort((a, b) => (a.electronegativity || 0) - (b.electronegativity || 0));
-
-		const anionCount = composition[anion.symbol];
-		let anionPrefix = (GREEK_PREFIXES[anionCount] || 'poly');
-		const anionNameRoot = IDE_SUFFIXES[anion.name] || anion.name.toLowerCase().replace(/(?:ine|on|en|us|ur|ogen|ygen)$/, '') + 'ide';
-		if ((anionPrefix.endsWith('a') || anionPrefix.endsWith('o')) && ['a', 'e', 'i', 'o', 'u'].includes(anionNameRoot[0])) {
-			anionPrefix = anionPrefix.slice(0, -1);
-		}
-		const anionPart = (anionPrefix === 'mono' ? '' : anionPrefix) + anionNameRoot;
-
-		const cationCount = composition[cation.symbol];
-		const cationPrefix = cationCount > 1 ? GREEK_PREFIXES[cationCount] : '';
-		const cationPart = cationPrefix + cation.name.toLowerCase();
-
-		return `${cationPart} ${anionPart}`.charAt(0).toUpperCase() + `${cationPart} ${anionPart}`.slice(1);
+	if (symbols.length === 0) return "";
+	
+	const elements = symbols.map(getElement).filter(Boolean);
+	if (elements.length !== symbols.length) return "Unknown elements in formula";
+	
+	const formula = getHillFormula(composition);
+	if (KNOWN_COMPOUNDS[formula]) return KNOWN_COMPOUNDS[formula];
+	
+	const isOrganic = () => symbols.includes('C');
+	const isAcid = () => composition['H'] > 0 && elements.length > 1 && !elements.some(el => el.category.includes('metal') && el.symbol !== 'H');
+	
+	const classifyElements = () => {
+		const metals = elements.filter(el => el.category.includes('metal') || (el.category.includes('metalloid') && el.electronegativity < 1.9));
+		const nonmetals = elements.filter(el => !metals.includes(el));
+		return { metals, nonmetals };
 	};
 
-	const nameOrganicCompound = () => {
+	const { metals, nonmetals } = classifyElements();
+	const isIonic = () => metals.length > 0 && nonmetals.length > 0;
+	
+	const nameOrganic = () => {
 		const c = composition['C'] || 0;
 		const h = composition['H'] || 0;
+		if (c === 0) return null;
+
+		const prefix = CHEMICAL_DATA.ORGANIC_PREFIXES[c] || `polycarb`;
+		if(symbols.every(s => ['C', 'H'].includes(s))) {
+			if (h === 2 * c + 2) return prefix + 'ane';
+			if (h === 2 * c) return prefix + 'ene (or cycloalkane)';
+			if (h === 2 * c - 2) return prefix + 'yne (or diene)';
+			return `Unsaturated hydrocarbon`;
+		}
+		
 		const o = composition['O'] || 0;
-		const n = composition['N'] || 0;
-		const halogens = ['F', 'Cl', 'Br', 'I'].reduce((sum, s) => sum + (composition[s] || 0), 0);
-
-		if (c > 20) return "Large organic molecule (polymer-like)";
-
-		const backbonePrefix = ORGANIC_PREFIXES[c];
-		if (!backbonePrefix) return "Complex organic compound";
-		
-		let baseName;
-		let saturation = (2 * c + 2) - (h + halogens);
-
-		if (o === 0 && n === 0 && halogens === 0) {
-			if (saturation === 0) baseName = backbonePrefix + 'ane';
-			else if (saturation === 2) baseName = backbonePrefix + 'ene';
-			else if (saturation === 4) baseName = backbonePrefix + 'yne';
-			else return `${backbonePrefix}ane-based hydrocarbon`;
-			return baseName.charAt(0).toUpperCase() + baseName.slice(1);
+		if (o > 0 && symbols.every(s => ['C', 'H', 'O'].includes(s))) {
+			if (h === 2 * c + 2 && o === 1) return `${prefix}anol or ${prefix}yl ether`;
+			if (h === 2 * c && o === 1) return `${prefix}anal or ${prefix}anone`;
+			if (h === 2 * c && o === 2) return `${prefix}anoic acid or ester`;
 		}
-		
-		const adjustedH = h - n;
-		const remainingSaturation = (2 * c + 2) - (adjustedH + halogens);
-
-		if (o >= 2 && adjustedH >= 1) {
-			if (c > 0 && (2 * c) === h && o === 2) {
-				return (backbonePrefix + 'anoic acid').charAt(0).toUpperCase() + (backbonePrefix + 'anoic acid').slice(1);
-			}
-		}
-
-		if (o >= 1) {
-			if (2 * c + 2 === h) {
-				return (backbonePrefix + 'anol').charAt(0).toUpperCase() + (backbonePrefix + 'anol').slice(1);
-			}
-			if (2 * c === h) {
-				return `Unsaturated ${backbonePrefix} framework with oxygen`;
-			}
-		}
-		
-		if (n >= 1) {
-			if (2 * c + 3 === h + n) {
-				return (backbonePrefix + 'anamine').charAt(0).toUpperCase() + (backbonePrefix + 'anamine').slice(1);
-			}
-		}
-		
-		let description = "Organic compound";
-		const others = symbols.filter(s => !['C', 'H'].includes(s));
-		if (others.length > 0) {
-			const otherNames = others.map(s => elementsData.find(el => el.symbol === s).name.toLowerCase()).join(', ');
-			description += ` containing ${otherNames}`;
-		}
-		return description;
+		return 'Organic compound derivative';
 	};
 
-	const generateFallbackName = () => {
-		const sortedElements = symbols
-			.map(s => elementsData.find(el => el.symbol === s))
-			.filter(Boolean)
-			.sort((a, b) => (a.electronegativity || 0) - (b.electronegativity || 0));
-
-		if (sortedElements.length !== symbols.length) return "Compound with unknown elements";
-
-		const elementNames = sortedElements.map(el => el.name);
+	const nameIonic = () => {
+		let cation, anionComp = { ...composition };
 		
-		const hasO = symbols.includes('O');
-		const hasMetal = sortedElements.some(el => el.category.includes('metal'));
+		if (composition['N'] >= 1 && composition['H'] >= 4) {
+			const tempAnionComp = { ...composition };
+			tempAnionComp['N'] -= 1;
+			tempAnionComp['H'] -= 4;
+			if (tempAnionComp['N'] === 0) delete tempAnionComp['N'];
+			if (tempAnionComp['H'] === 0) delete tempAnionComp['H'];
+			const anionFormula = getHillFormula(tempAnionComp);
+			if(Object.keys(tempAnionComp).length === 0 || POLYATOMIC_IONS[anionFormula] || Object.keys(tempAnionComp).length === 1) {
+				cation = { name: 'ammonium', symbol: 'NH4', count: 1, charge: 1 };
+				anionComp = tempAnionComp;
+			}
+		}
 
-		if (hasO && hasMetal) return "Mixed metal oxide";
-		if (hasO) return "Complex oxide";
+		if (!cation) {
+			if (metals.length !== 1) return null;
+			const cationElement = metals[0];
+			cation = { name: cationElement.name, symbol: cationElement.symbol, count: composition[cationElement.symbol] };
+			delete anionComp[cation.symbol];
+		}
 
-		let nameList;
-		if (elementNames.length > 2) {
-			nameList = elementNames.slice(0, -1).join(', ') + `, and ${elementNames.slice(-1)}`;
+		const anionFormula = getHillFormula(anionComp);
+		const anionCount = (Object.keys(anionComp).length === 1) ? anionComp[Object.keys(anionComp)[0]] : 1;
+		let anionName, totalAnionCharge;
+
+		if (POLYATOMIC_IONS[anionFormula]) {
+			anionName = POLYATOMIC_IONS[anionFormula].name;
+			totalAnionCharge = POLYATOMIC_IONS[anionFormula].charge;
+		} else if (Object.keys(anionComp).length === 1) {
+			const anionSymbol = Object.keys(anionComp)[0];
+			const anionElement = getElement(anionSymbol);
+			anionName = (CHEMICAL_DATA.ELEMENT_ROOTS[anionSymbol] || anionElement.name.toLowerCase().slice(0, 4)) + 'ide';
+			totalAnionCharge = (anionElement.electronegativity > 2.0 && anionElement.group) ? Math.min(-1, anionElement.group - 18) * anionCount : -1 * anionCount;
 		} else {
-			nameList = elementNames.join(' and ');
+			return null;
 		}
-		return `Compound of ${nameList}`;
+
+		const cationCharge = -totalAnionCharge / cation.count;
+		if (cationCharge <= 0 || !Number.isInteger(cationCharge)) return null;
+		
+		let cationChargeStr = '';
+		const possibleStates = CHEMICAL_DATA.COMMON_OXIDATION_STATES[cation.symbol];
+		if (possibleStates && possibleStates.length > 1) {
+			cationChargeStr = ` (${CHEMICAL_DATA.ROMAN_NUMERALS[cationCharge] || cationCharge})`;
+		}
+
+		return `${cation.name}${cationChargeStr} ${anionName}`;
 	};
 
-	if (symbols.includes('C')) {
-		return nameOrganicCompound();
-	}
+	const nameAcid = () => {
+		const anionComp = { ...composition };
+		delete anionComp['H'];
+		const anionFormula = getHillFormula(anionComp);
 
-	if (elementCount === 2) {
-		return nameBinaryInorganic();
-	}
+		if (POLYATOMIC_IONS[anionFormula]) {
+			let name = POLYATOMIC_IONS[anionFormula].name;
+			name = name.replace('ate', 'ic acid').replace('ite', 'ous acid');
+			return name.charAt(0).toUpperCase() + name.slice(1);
+		}
+		
+		if(Object.keys(anionComp).length === 1) {
+			const anionSymbol = Object.keys(anionComp)[0];
+			const anionRoot = CHEMICAL_DATA.ELEMENT_ROOTS[anionSymbol] || getElement(anionSymbol).name.toLowerCase();
+			return `Hydro${anionRoot}ic acid`;
+		}
+		return null;
+	};
 
-	return generateFallbackName();
+	const nameBinaryCovalent = () => {
+		if (elements.length !== 2) return null;
+
+		const [el1, el2] = [...elements].sort((a, b) => (a.electronegativity || 0) - (b.electronegativity || 0));
+		const count1 = composition[el1.symbol];
+		const count2 = composition[el2.symbol];
+		
+		let prefix1 = CHEMICAL_DATA.GREEK_PREFIXES[count1] || '';
+		let prefix2 = CHEMICAL_DATA.GREEK_PREFIXES[count2] || 'mono';
+		
+		const name1 = el1.name.toLowerCase();
+		let root2 = (CHEMICAL_DATA.ELEMENT_ROOTS[el2.symbol] || el2.name.toLowerCase().slice(0, 4)) + 'ide';
+
+		if ((prefix2.endsWith('a') || prefix2.endsWith('o')) && ['a', 'e', 'i', 'o', 'u'].includes(root2[0])) {
+			prefix2 = prefix2.slice(0, -1);
+		}
+		if (prefix1 === 'mono') prefix1 = '';
+
+		const result = `${prefix1}${name1} ${prefix2}${root2}`.trim();
+		return result.charAt(0).toUpperCase() + result.slice(1);
+	};
+
+	const nameElemental = () => {
+		const count = composition[symbols[0]];
+		const prefix = CHEMICAL_DATA.GREEK_PREFIXES[count] || '';
+		return `${prefix ? prefix.charAt(0).toUpperCase() + prefix.slice(1) : ''}${elements[0].name}`;
+	};
+
+	let name;
+	if (isIonic()) { name = nameIonic(); if (name) return name; }
+	if (isAcid()) { name = nameAcid(); if (name) return name; }
+	if (isOrganic()) { name = nameOrganic(); if (name) return name; }
+	if (nonmetals.length === 2 && metals.length === 0) { name = nameBinaryCovalent(); if (name) return name; }
+	if (elements.length === 1) return nameElemental();
+
+	const elementNames = elements.map(e => e.name);
+	return `Compound of ${elementNames.join(', ')}`;
 }
 
 function onWindowResize() {
