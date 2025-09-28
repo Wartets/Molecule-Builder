@@ -253,3 +253,25 @@ canvas {
 		linear-gradient(135deg, transparent 70%, #aaa 65%, #aaa 75%, transparent 65%);
 	transition: all 0.4s ease-out;
 }
+
+#formula-input {
+	width: 100%;
+	padding: 8px;
+	margin-bottom: 10px;
+	background-color: rgba(0, 0, 0, 0.3);
+	border: 1px solid #555;
+	color: #f0f0f0;
+	border-radius: 5px;
+	font-size: 1em;
+	font-family: monospace;
+	transition: border-color 0.2s;
+}
+
+#formula-input:focus {
+	outline: none;
+	border-color: #aaa;
+}
+
+#formula-input.error {
+	border-color: #c0392b;
+}
