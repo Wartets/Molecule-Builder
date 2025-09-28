@@ -177,6 +177,7 @@ function incrementBondOrder(atom1, atom2) {
 			bond.order = Math.min(3, bond.order + 1);
 			updatePeriodicTableState();
 			updateMoleculeInfo();
+			validateAndColorAtoms();
 		}
 	}
 }
@@ -454,6 +455,7 @@ function deleteAtom(atomToDelete) {
 	} else {
 		updatePeriodicTableState();
 		updateMoleculeInfo();
+		validateAndColorAtoms();
 	}
 }
 
@@ -568,6 +570,63 @@ function getStericNumber(atom) {
 	return atom.bonds.length + lonePairs;
 }
 
+function getFormalCharge(atom) {
+	const valence = atom.data.valenceElectrons || (atom.data.group ? (atom.data.group > 12 ? atom.data.group - 10 : atom.data.group) : 0);
+	if (!valence) return 0;
+
+	const lonePairElectrons = getLonePairs(atom) * 2;
+	const bondingElectronsAssigned = getBondOrderSum(atom);
+
+	return valence - lonePairElectrons - bondingElectronsAssigned;
+}
+
+function validateAndColorAtoms() {
+	atoms.forEach(atom => {
+		atom.mesh.material.emissive.setHex(0x000000);
+
+		const formalCharge = getFormalCharge(atom);
+		const bondOrderSum = getBondOrderSum(atom);
+		const lonePairs = getLonePairs(atom);
+		const totalValenceShellElectrons = (bondOrderSum * 2) + (lonePairs * 2);
+
+		let hasError = false;
+
+		if (bondOrderSum > atom.data.maxBonds) {
+			hasError = true;
+		}
+
+		if (atom.data.row === 2 && atom.data.number > 2 && totalValenceShellElectrons > 8) {
+			hasError = true;
+		}
+		if (atom.data.number === 1 && totalValenceShellElectrons > 2) {
+			hasError = true;
+		}
+
+		if (Math.abs(formalCharge) > 1) {
+			hasError = true;
+		}
+
+		if (atom.data.electronegativity >= 3.4 && formalCharge > 0) {
+			hasError = true;
+		}
+		
+		if (atom.data.electronegativity < 1.2 && formalCharge < 0) {
+			hasError = true;
+		}
+
+		if (hasError) {
+			atom.mesh.material.emissive.setHex(0xcc0000);
+		}
+	});
+
+	if (selectedAtom) {
+		selectedAtom.mesh.material.emissive.setHex(0x555555);
+	}
+	if (atomForBonding) {
+		atomForBonding.mesh.material.emissive.setHex(0x005588);
+	}
+}
+
 function updatePeriodicTableState() {
 	const moleculeHasOpenSlots = atoms.some(atom => getBondOrderSum(atom) < atom.data.maxBonds);
 	const elementsInTable = document.querySelectorAll('.element');
@@ -641,6 +700,7 @@ function prepareToAddAtom(symbol) {
 	if (atoms.length === 0) {
 		addAtom(data);
 		updatePeriodicTableState();
+		validateAndColorAtoms();
 		return;
 	}
 
@@ -895,6 +955,7 @@ function createBond(atom1, atom2) {
 		atom1.bonds.push(bond);
 		atom2.bonds.push(bond);
 		updateBondMeshes();
+		validateAndColorAtoms();
 	}
 }
 
@@ -1369,6 +1430,7 @@ function buildMoleculeFromStructure(structure) {
 		});
 		updatePeriodicTableState();
 		updateMoleculeInfo();
+		validateAndColorAtoms();
 	}, 100);
 }
 

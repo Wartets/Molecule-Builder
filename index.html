@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"">
 	<link rel="icon" href="https://wartets.github.io/N-Body-Problem/image/browser-icon.png">
 	<title>Molecule Builder</title>
 	<link rel="stylesheet" href="style.css">
@@ -32,7 +32,11 @@
 		</div>
 		<div id="resize-handle"></div>
 	</div>
-
+	
+	<script>	
+		document.addEventListener('wheel', function(e) {if (e.ctrlKey) e.preventDefault();}, { passive: false });
+		document.addEventListener('keydown', function(e) {if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {e.preventDefault();}});
+	</script>
 	<script src="three.min.js"></script>
 	<script src="OrbitControls.js"></script>
 	<script src="dic.js"></script>
