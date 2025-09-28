@@ -24,6 +24,14 @@ let currentFormulaString = null;
 let isCtrlPressed = false;
 let isShiftPressed = false;
 let draggedAtom = null;
+let longClickTimer = null;
+let longClickTargetHelper = null;
+const LONG_CLICK_DURATION = 400;
+let touchStartX, touchStartY;
+let lastTap = 0;
+let lastTapTarget = null;
+let isDraggingViaTouch = false;
+const DOUBLE_TAP_DELAY = 300;
 
 let isPlacementModeActive = false;
 let selectedHelperIndex = -1;
@@ -78,6 +86,10 @@ function initEventListeners() {
 	renderer.domElement.addEventListener('contextmenu', (event) => {
 		if (isCtrlPressed) event.preventDefault();
 	});
+
+	renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+	renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+	renderer.domElement.addEventListener('touchend', onTouchEnd);
 }
 
 function onKeyDown(event) {
@@ -139,41 +151,6 @@ function onKeyUp(event) {
 	}
 }
 
-function onMouseDown3D(event) {
-	if (isPlacementModeActive) return;
-
-	mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-	mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-	raycaster.setFromCamera(mouse, camera);
-
-	const atomMeshes = atoms.map(a => a.mesh);
-	const intersects = raycaster.intersectObjects(atomMeshes, false);
-
-	if (intersects.length > 0) {
-		const targetAtom = atoms.find(a => a.mesh === intersects[0].object);
-		if (!targetAtom) return;
-
-		if (isShiftPressed) {
-			handleBondCreation(targetAtom);
-		} else if (isCtrlPressed) {
-			if (event.button === 0) {
-				draggedAtom = targetAtom;
-				renderer.domElement.style.cursor = 'grabbing';
-				dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(dragPlane.normal), draggedAtom.position);
-				if (raycaster.ray.intersectPlane(dragPlane, intersectionPoint)) {
-					dragOffset.copy(draggedAtom.position).sub(intersectionPoint);
-				}
-			} else if (event.button === 2) {
-				deleteAtom(targetAtom);
-			}
-		} else if (event.button === 0) {
-			selectAtom(targetAtom);
-		}
-	} else if (event.button === 0) {
-		deselectAllAtoms();
-	}
-}
-
 function handleBondCreation(targetAtom) {
 	currentFormulaString = null;
 	if (!atomForBonding) {
@@ -204,7 +181,128 @@ function incrementBondOrder(atom1, atom2) {
 	}
 }
 
+function onMouseDown3D(event) {
+	mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+	mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+	raycaster.setFromCamera(mouse, camera);
+
+	if (isPlacementModeActive) {
+		const helperMeshes = placementHelpers.map(h => h.mesh);
+		const intersects = raycaster.intersectObjects(helperMeshes, false);
+
+		if (intersects.length > 0 && event.button === 0) {
+			const targetHelper = placementHelpers.find(h => h.mesh === intersects[0].object);
+			if (targetHelper) {
+				longClickTargetHelper = targetHelper;
+				longClickTimer = setTimeout(() => {
+					if (longClickTargetHelper) {
+						placeAtom(atomToPlaceData, longClickTargetHelper.targetAtom);
+						cancelPlacement();
+						longClickTargetHelper = null;
+						longClickTimer = null;
+					}
+				}, LONG_CLICK_DURATION);
+			}
+		}
+		return;
+	}
+
+	const atomMeshes = atoms.map(a => a.mesh);
+	const intersects = raycaster.intersectObjects(atomMeshes, false);
+
+	if (intersects.length > 0) {
+		const targetAtom = atoms.find(a => a.mesh === intersects[0].object);
+		if (!targetAtom) return;
+
+		if (isShiftPressed) {
+			handleBondCreation(targetAtom);
+		} else if (isCtrlPressed) {
+			if (event.button === 0) {
+				draggedAtom = targetAtom;
+				renderer.domElement.style.cursor = 'grabbing';
+				dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(dragPlane.normal), draggedAtom.position);
+				if (raycaster.ray.intersectPlane(dragPlane, intersectionPoint)) {
+					dragOffset.copy(draggedAtom.position).sub(intersectionPoint);
+				}
+			} else if (event.button === 2) {
+				deleteAtom(targetAtom);
+			}
+		} else if (event.button === 0) {
+			selectAtom(targetAtom);
+		}
+	} else if (event.button === 0) {
+		deselectAllAtoms();
+	}
+}
+
+function onTouchStart(event) {
+	if (event.touches.length > 1) {
+		clearTimeout(longClickTimer);
+		longClickTimer = null;
+		isDraggingViaTouch = false;
+		controls.enabled = true;
+		return;
+	}
+
+	const touch = event.touches[0];
+	touchStartX = touch.clientX;
+	touchStartY = touch.clientY;
+
+	mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+	mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+	raycaster.setFromCamera(mouse, camera);
+
+	clearTimeout(longClickTimer);
+
+	if (isPlacementModeActive) {
+		const helperMeshes = placementHelpers.map(h => h.mesh);
+		const intersects = raycaster.intersectObjects(helperMeshes, false);
+		if (intersects.length > 0) {
+			event.preventDefault();
+			const targetHelper = placementHelpers.find(h => h.mesh === intersects[0].object);
+			if (targetHelper) {
+				longClickTargetHelper = targetHelper;
+				longClickTimer = setTimeout(() => {
+					if (longClickTargetHelper) {
+						placeAtom(atomToPlaceData, longClickTargetHelper.targetAtom);
+						cancelPlacement();
+						longClickTargetHelper = null;
+						longClickTimer = null;
+					}
+				}, LONG_CLICK_DURATION);
+			}
+		}
+		return;
+	}
+
+	const atomMeshes = atoms.map(a => a.mesh);
+	const intersects = raycaster.intersectObjects(atomMeshes, false);
+	if (intersects.length > 0) {
+		event.preventDefault();
+		const targetAtom = atoms.find(a => a.mesh === intersects[0].object);
+		if (targetAtom) {
+			isDraggingViaTouch = false;
+			longClickTimer = setTimeout(() => {
+				isDraggingViaTouch = true;
+				draggedAtom = targetAtom;
+				controls.enabled = false;
+				renderer.domElement.style.cursor = 'grabbing';
+				dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(dragPlane.normal), draggedAtom.position);
+				if (raycaster.ray.intersectPlane(dragPlane, intersectionPoint)) {
+					dragOffset.copy(draggedAtom.position).sub(intersectionPoint);
+				}
+			}, LONG_CLICK_DURATION);
+		}
+	}
+}
+
 function onMouseMove3D(event) {
+	if (longClickTimer) {
+		clearTimeout(longClickTimer);
+		longClickTimer = null;
+		longClickTargetHelper = null;
+	}
+
 	if (draggedAtom) {
 		mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
 		mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -217,10 +315,106 @@ function onMouseMove3D(event) {
 	}
 }
 
+function onTouchMove(event) {
+	if (event.touches.length > 1) {
+		clearTimeout(longClickTimer);
+		longClickTimer = null;
+		return;
+	}
+
+	const touch = event.touches[0];
+	const deltaX = Math.abs(touch.clientX - touchStartX);
+	const deltaY = Math.abs(touch.clientY - touchStartY);
+
+	if (deltaX > 5 || deltaY > 5) {
+		clearTimeout(longClickTimer);
+		longClickTimer = null;
+		longClickTargetHelper = null;
+	}
+
+	if (isDraggingViaTouch && draggedAtom) {
+		event.preventDefault();
+		mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+		mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+		raycaster.setFromCamera(mouse, camera);
+		if (raycaster.ray.intersectPlane(dragPlane, intersectionPoint)) {
+			const newPosition = intersectionPoint.add(dragOffset);
+			draggedAtom.position.copy(newPosition);
+			draggedAtom.velocity.set(0, 0, 0);
+		}
+	}
+}
+
 function onMouseUp3D(event) {
+	if (longClickTimer) {
+		clearTimeout(longClickTimer);
+		longClickTimer = null;
+		longClickTargetHelper = null;
+	}
+
 	if (event.button === 0 && draggedAtom) {
 		draggedAtom = null;
 		renderer.domElement.style.cursor = isCtrlPressed ? 'pointer' : 'auto';
+	}
+}
+
+function onTouchEnd(event) {
+	const wasDragging = isDraggingViaTouch;
+	clearTimeout(longClickTimer);
+	longClickTimer = null;
+	longClickTargetHelper = null;
+	isDraggingViaTouch = false;
+
+	if (wasDragging) {
+		draggedAtom = null;
+		controls.enabled = true;
+		renderer.domElement.style.cursor = 'auto';
+		return;
+	}
+	
+	controls.enabled = true;
+
+	mouse.x = (touchStartX / window.innerWidth) * 2 - 1;
+	mouse.y = -(touchStartY / window.innerHeight) * 2 + 1;
+	raycaster.setFromCamera(mouse, camera);
+
+	if (isPlacementModeActive) {
+		const helperMeshes = placementHelpers.map(h => h.mesh);
+		const intersects = raycaster.intersectObjects(helperMeshes, false);
+		if (intersects.length > 0) {
+			const targetHelper = placementHelpers.find(h => h.mesh === intersects[0].object);
+			if (targetHelper) {
+				selectedHelperIndex = placementHelpers.indexOf(targetHelper);
+				highlightSelectedHelper();
+			}
+		}
+		return;
+	}
+
+	const atomMeshes = atoms.map(a => a.mesh);
+	const intersects = raycaster.intersectObjects(atomMeshes, false);
+
+	if (intersects.length > 0) {
+		const targetAtom = atoms.find(a => a.mesh === intersects[0].object);
+		if (targetAtom) {
+			const currentTime = Date.now();
+			if (currentTime - lastTap < DOUBLE_TAP_DELAY && lastTapTarget === targetAtom) {
+				deleteAtom(targetAtom);
+				lastTap = 0;
+				lastTapTarget = null;
+			} else {
+				handleBondCreation(targetAtom);
+				lastTap = currentTime;
+				lastTapTarget = targetAtom;
+			}
+		}
+	} else {
+		if (atomForBonding) {
+			atomForBonding.mesh.material.emissive.setHex(0x000000);
+			atomForBonding = null;
+		}
+		deselectAllAtoms();
+		lastTapTarget = null;
 	}
 }
 
@@ -426,6 +620,15 @@ Category: ${el.category}
 }
 
 function prepareToAddAtom(symbol) {
+	if (isPlacementModeActive && atomToPlaceData && atomToPlaceData.symbol === symbol) {
+		const helper = placementHelpers[selectedHelperIndex];
+		if (helper) {
+			placeAtom(atomToPlaceData, helper.targetAtom);
+		}
+		cancelPlacement();
+		return;
+	}
+
 	if (atomToPlaceData || isPlacementModeActive) return;
 	currentFormulaString = null;
 	if (formulaInput.value) {
