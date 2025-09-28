@@ -57,12 +57,21 @@ function init() {
 	const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
 	directionalLight.position.set(1, 1, 0.5).normalize();
 	scene.add(directionalLight);
+	
+	const boxGeometry = new THREE.BoxGeometry(100, 100, 100);
+	const edges = new THREE.EdgesGeometry(boxGeometry);
+	const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333 }));
+
+	line.rotation.y = THREE.MathUtils.degToRad(90 * (1 - 2*Math.random()));
+
+	scene.add(line);
+
 	controls = new THREE.OrbitControls(camera, renderer.domElement);
 	controls.enableDamping = true;
 	controls.dampingFactor = 0.05;
 	controls.screenSpacePanning = false;
 	controls.minDistance = 2;
-	controls.maxDistance = 50;
+	controls.maxDistance = 120;
 
 	moleculeInfoDiv = document.getElementById('molecule-info');
 	moleculeFormulaSpan = document.getElementById('molecule-formula');
