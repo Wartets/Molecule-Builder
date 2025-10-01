@@ -636,7 +636,7 @@ function getBondOrderSum(atom) {
 
 function getLonePairs(atom) {
 	const bondOrderSum = getBondOrderSum(atom);
-	const valence = atom.data.valenceElectrons || (atom.data.group ? (atom.data.group > 12 ? atom.data.group - 10 : atom.data.group) : 0);
+	const valence = atom.data.valenceElectrons || (atom.data.col ? (atom.data.col > 12 ? atom.data.col - 10 : atom.data.col) : 0);
 	return Math.max(0, Math.floor((valence - bondOrderSum) / 2));
 }
 
@@ -646,7 +646,7 @@ function getStericNumber(atom) {
 }
 
 function getFormalCharge(atom) {
-	const valence = atom.data.valenceElectrons || (atom.data.group ? (atom.data.group > 12 ? atom.data.group - 10 : atom.data.group) : 0);
+	const valence = atom.data.valenceElectrons || (atom.data.col ? (atom.data.col > 12 ? atom.data.col - 10 : atom.data.col) : 0);
 	if (!valence) return 0;
 
 	const lonePairElectrons = getLonePairs(atom) * 2;
@@ -957,13 +957,36 @@ function updateAtomGeometry(centralAtom) {
 	});
 
 	if (lonePairCount > 0) {
-		const lonePairMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaFF, transparent: true, opacity: 0.5, roughness: 0.2 });
-		const lonePairGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+		const lonePairMaterial = new THREE.MeshStandardMaterial({
+			color: 0x9090FF,
+			transparent: true,
+			opacity: 0.75,
+			emissive: 0x111133,
+			roughness: 0.5
+		});
+
+		const points = [];
+		const lobeLength = 0.6;
+		const lobeWidth = 0.4;
+		for (let i = 0; i <= 12; i++) {
+			const t = i / 12;
+			const x = lobeWidth * Math.sin(Math.PI * t);
+			const y = lobeLength * t;
+			points.push(new THREE.Vector2(x, y));
+		}
+		const lonePairGeometry = new THREE.LatheGeometry(points, 20);
+		const up = new THREE.Vector3(0, 1, 0);
+
 		rotatedIdealDirections.forEach((dir, i) => {
 			if (!usedIndices.has(i)) {
 				const lpMesh = new THREE.Mesh(lonePairGeometry, lonePairMaterial);
-				const relativePos = dir.clone().multiplyScalar(centralAtom.data.radius * 0.8);
+				
+				const relativePos = dir.clone().multiplyScalar(centralAtom.data.radius * 0.75);
 				lpMesh.position.copy(relativePos);
+				
+				const quaternion = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
+				lpMesh.quaternion.copy(quaternion);
+				
 				centralAtom.mesh.add(lpMesh);
 				centralAtom.lonePairs.push(lpMesh);
 			}
