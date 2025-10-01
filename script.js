@@ -184,6 +184,8 @@ function incrementBondOrder(atom1, atom2) {
 	if (bond) {
 		if (getBondOrderSum(atom1) < atom1.data.maxBonds && getBondOrderSum(atom2) < atom2.data.maxBonds) {
 			bond.order = Math.min(3, bond.order + 1);
+			updateAtomGeometry(atom1);
+			updateAtomGeometry(atom2);
 			updatePeriodicTableState();
 			updateMoleculeInfo();
 			validateAndColorAtoms();
@@ -473,16 +475,70 @@ function initUI() {
 	const header = uiContainer.querySelector('.header');
 	const toggleButton = document.getElementById('toggle-button');
 	const settingsIcon = document.getElementById('settings-icon');
-	uiContainer.style.left = '15px';
-	uiContainer.style.top = '15px';
+	let lastKnownState = null;
+
+	const saveCurrentState = () => {
+		lastKnownState = {
+			left: uiContainer.style.left,
+			top: uiContainer.style.top,
+			right: uiContainer.style.right,
+			transform: uiContainer.style.transform,
+			transformOrigin: uiContainer.style.transformOrigin,
+		};
+	};
+
 	toggleButton.addEventListener('click', () => {
-		uiContainer.classList.add('hidden');
+		saveCurrentState();
+		const rect = uiContainer.getBoundingClientRect();
+		const currentTransform = lastKnownState.transform || 'scale(1)';
+
+		const destX = window.innerWidth - rect.width - 15;
+		const destY = 15;
+
+		const translateX = destX - rect.left;
+		const translateY = destY - rect.top;
+
+		uiContainer.style.transformOrigin = 'top right';
+		uiContainer.style.setProperty('--current-transform', currentTransform);
+		uiContainer.style.setProperty('--end-tx', `${translateX}px`);
+		uiContainer.style.setProperty('--end-ty', `${translateY}px`);
+
+		uiContainer.classList.add('hiding');
 		settingsIcon.classList.remove('hidden');
+
+		uiContainer.addEventListener('animationend', () => {
+			uiContainer.classList.add('hidden');
+			uiContainer.classList.remove('hiding');
+			
+			uiContainer.style.top = '15px';
+			uiContainer.style.right = '15px';
+			uiContainer.style.left = 'auto';
+
+			uiContainer.style.removeProperty('--current-transform');
+			uiContainer.style.removeProperty('--end-tx');
+			uiContainer.style.removeProperty('--end-ty');
+		}, { once: true });
 	});
+
 	settingsIcon.addEventListener('click', () => {
+		if (lastKnownState) {
+			uiContainer.style.left = lastKnownState.left;
+			uiContainer.style.top = lastKnownState.top;
+			uiContainer.style.right = lastKnownState.right;
+			uiContainer.style.transform = lastKnownState.transform;
+			uiContainer.style.transformOrigin = lastKnownState.transformOrigin;
+		} else {
+			uiContainer.style.top = '15px';
+			uiContainer.style.right = '15px';
+			uiContainer.style.left = 'auto';
+			uiContainer.style.transform = `scale(${currentScale})`;
+			uiContainer.style.transformOrigin = 'top right';
+		}
 		uiContainer.classList.remove('hidden');
+		uiContainer.classList.remove('hiding');
 		settingsIcon.classList.add('hidden');
 	});
+
 	document.getElementById('reset-button').addEventListener('click', resetSimulation);
 
 	formulaInput = document.getElementById('formula-input');
@@ -499,38 +555,38 @@ function initUI() {
 	const startResize = (e) => {
 		e.preventDefault();
 		e.stopPropagation();
-
 		isResizing = true;
+		
+		uiContainer.style.transformOrigin = 'top right';
+		const rect = uiContainer.getBoundingClientRect();
+		uiContainer.style.left = 'auto';
+		uiContainer.style.right = `${window.innerWidth - rect.right}px`;
+		
 		initialUnscaledWidth = uiContainer.offsetWidth;
 		initialMouseX = e.clientX;
 
-		document.body.style.cursor = 'se-resize';
+		document.body.style.cursor = 'sw-resize';
 		window.addEventListener('mousemove', doResize);
 		window.addEventListener('mouseup', stopResize);
 	};
 
 	const doResize = (e) => {
 		if (!isResizing) return;
-
-		const mouseDeltaX = e.clientX - initialMouseX;
+		const mouseDeltaX = initialMouseX - e.clientX;
 		const newScaledWidth = (initialUnscaledWidth * currentScale) + mouseDeltaX;
 		let newScale = newScaledWidth / initialUnscaledWidth;
-
 		newScale = Math.max(0.4, Math.min(newScale, 1.5));
-
 		uiContainer.style.transform = `scale(${newScale})`;
 	};
 
 	const stopResize = () => {
 		if (!isResizing) return;
 		isResizing = false;
-
 		const transformValue = uiContainer.style.transform;
 		const scaleMatch = transformValue.match(/scale\(([^)]+)\)/);
 		if (scaleMatch && scaleMatch[1]) {
 			currentScale = parseFloat(scaleMatch[1]);
 		}
-
 		document.body.style.cursor = 'auto';
 		window.removeEventListener('mousemove', doResize);
 		window.removeEventListener('mouseup', stopResize);
@@ -543,11 +599,20 @@ function initUI() {
 	const onMouseDown = (e) => {
 		if (e.target.closest('button') || e.target.id === 'resize-handle' || e.target.id === 'formula-input') return;
 		isDragging = true;
-		offsetX = e.clientX - uiContainer.getBoundingClientRect().left;
-		offsetY = e.clientY - uiContainer.getBoundingClientRect().top;
+
+		const rect = uiContainer.getBoundingClientRect();
+		uiContainer.style.right = 'auto';
+		uiContainer.style.transformOrigin = 'top left';
+		uiContainer.style.left = `${rect.left}px`;
+		uiContainer.style.top = `${rect.top}px`;
+
+		offsetX = e.clientX - rect.left;
+		offsetY = e.clientY - rect.top;
+
 		document.addEventListener('mousemove', onMouseMove);
 		document.addEventListener('mouseup', onMouseUp);
 	};
+
 	const onMouseMove = (e) => {
 		if (!isDragging) return;
 		e.preventDefault();
@@ -556,6 +621,7 @@ function initUI() {
 		uiContainer.style.left = `${x}px`;
 		uiContainer.style.top = `${y}px`;
 	};
+
 	const onMouseUp = () => {
 		isDragging = false;
 		document.removeEventListener('mousemove', onMouseMove);
@@ -786,7 +852,8 @@ function addAtom(data, position) {
 		position: position || new THREE.Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2),
 		velocity: new THREE.Vector3(),
 		force: new THREE.Vector3(),
-		bonds: []
+		bonds: [],
+		lonePairs: []
 	};
 	atom.mesh.position.copy(atom.position);
 	atoms.push(atom);
@@ -813,50 +880,49 @@ function getIdealBondLength(atom1, atom2, order) {
 function updateAtomGeometry(centralAtom) {
 	const ligands = centralAtom.bonds.map(bond => bond.atom1 === centralAtom ? bond.atom2 : bond.atom1);
 	const n = ligands.length;
-	const stericNumber = getStericNumber(centralAtom);
+	const lonePairCount = getLonePairs(centralAtom);
+	const stericNumber = n + lonePairCount;
 
-	if (n === 0 || !ELECTRON_GEOMETRIES[stericNumber]) return;
+	centralAtom.lonePairs.forEach(lp => centralAtom.mesh.remove(lp));
+	centralAtom.lonePairs = [];
+
+	if (n === 0 && lonePairCount === 0) return;
+	if (!ELECTRON_GEOMETRIES[stericNumber]) return;
 
 	let idealDirections = [...ELECTRON_GEOMETRIES[stericNumber]];
-	if (n === 1) {
-		const ligand = ligands[0];
-		const bond = centralAtom.bonds[0];
-		const idealLength = getIdealBondLength(centralAtom, ligand, bond.order);
-		const direction = new THREE.Vector3().subVectors(ligand.position, centralAtom.position).normalize();
-		ligand.position.copy(centralAtom.position).add(direction.multiplyScalar(idealLength));
-		ligand.velocity.set(0, 0, 0);
-		return;
-	}
-
+	
 	const actualDirections = ligands.map(ligand =>
 		new THREE.Vector3().subVectors(ligand.position, centralAtom.position).normalize()
 	);
 
 	let bestRotation = new THREE.Quaternion();
-	let minScore = Infinity;
+	
+	if (n > 0) {
+		let minScore = Infinity;
 
-	for (let i = 0; i < idealDirections.length; i++) {
-		const q = new THREE.Quaternion().setFromUnitVectors(idealDirections[i], actualDirections[0]);
-		for (let j = 0; j < 12; j++) {
-			const axis = actualDirections[0].clone();
-			const q_roll = new THREE.Quaternion().setFromAxisAngle(axis, (j / 12) * Math.PI * 2);
-			const finalQ = q_roll.multiply(q);
+		for (let i = 0; i < idealDirections.length; i++) {
+			const q = new THREE.Quaternion().setFromUnitVectors(idealDirections[i], actualDirections[0]);
+			for (let j = 0; j < 12; j++) {
+				const axis = actualDirections[0].clone();
+				const q_roll = new THREE.Quaternion().setFromAxisAngle(axis, (j / 12) * Math.PI * 2);
+				const finalQ = q_roll.multiply(q);
 
-			let currentScore = 0;
-			const remainingIdeal = idealDirections.filter((v, index) => index !== i).map(v => v.clone().applyQuaternion(finalQ));
-			const remainingActual = actualDirections.slice(1);
+				let currentScore = 0;
+				const remainingIdeal = idealDirections.filter((v, index) => index !== i).map(v => v.clone().applyQuaternion(finalQ));
+				const remainingActual = actualDirections.slice(1);
 
-			remainingActual.forEach(actualVec => {
-				let bestMatchDist = Infinity;
-				remainingIdeal.forEach(idealVec => {
-					bestMatchDist = Math.min(bestMatchDist, actualVec.distanceTo(idealVec));
+				remainingActual.forEach(actualVec => {
+					let bestMatchDist = Infinity;
+					remainingIdeal.forEach(idealVec => {
+						bestMatchDist = Math.min(bestMatchDist, actualVec.distanceTo(idealVec));
+					});
+					currentScore += bestMatchDist;
 				});
-				currentScore += bestMatchDist;
-			});
 
-			if (currentScore < minScore) {
-				minScore = currentScore;
-				bestRotation = finalQ;
+				if (currentScore < minScore) {
+					minScore = currentScore;
+					bestRotation = finalQ;
+				}
 			}
 		}
 	}
@@ -889,6 +955,20 @@ function updateAtomGeometry(centralAtom) {
 			ligand.velocity.set(0, 0, 0);
 		}
 	});
+
+	if (lonePairCount > 0) {
+		const lonePairMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaFF, transparent: true, opacity: 0.5, roughness: 0.2 });
+		const lonePairGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+		rotatedIdealDirections.forEach((dir, i) => {
+			if (!usedIndices.has(i)) {
+				const lpMesh = new THREE.Mesh(lonePairGeometry, lonePairMaterial);
+				const relativePos = dir.clone().multiplyScalar(centralAtom.data.radius * 0.8);
+				lpMesh.position.copy(relativePos);
+				centralAtom.mesh.add(lpMesh);
+				centralAtom.lonePairs.push(lpMesh);
+			}
+		});
+	}
 }
 
 function getNewAtomPosition(targetAtom, newAtom) {
@@ -905,6 +985,10 @@ function getNewAtomPosition(targetAtom, newAtom) {
 	}
 	
 	const usedDirections = ligands.map(l => new THREE.Vector3().subVectors(l.position, targetAtom.position).normalize());
+	if (targetAtom.lonePairs) {
+		const lonePairDirections = targetAtom.lonePairs.map(lpMesh => lpMesh.position.clone().normalize());
+		usedDirections.push(...lonePairDirections);
+	}
 	const rotatedIdeals = idealDirections.map(d => d.clone().applyQuaternion(rotation));
 
 	let bestNewDirection = null;
@@ -963,45 +1047,74 @@ function createBond(atom1, atom2) {
 		bonds.push(bond);
 		atom1.bonds.push(bond);
 		atom2.bonds.push(bond);
+		updateAtomGeometry(atom1);
+		updateAtomGeometry(atom2);
 		updateBondMeshes();
 		validateAndColorAtoms();
 	}
 }
 
 function updatePhysics(deltaTime) {
-	if (atoms.length < 2) return;
-	const repulsionStrength = 0.8;
-	const bondStrength = 30.0;
-	const damping = 0.95;
-	atoms.forEach(atom => atom.force.set(0, 0, 0));
-	for (let i = 0; i < atoms.length; i++) {
-		for (let j = i + 1; j < atoms.length; j++) {
-			const atom1 = atoms[i];
-			const atom2 = atoms[j];
-			const delta = new THREE.Vector3().subVectors(atom1.position, atom2.position);
-			const distance = delta.length();
-			if (distance > 0) {
-				const force = delta.multiplyScalar(repulsionStrength / (distance * distance * distance));
-				atom1.force.add(force);
-				atom2.force.sub(force);
+	if (atoms.length >= 2) {
+		const repulsionStrength = 0.8;
+		const bondStrength = 30.0;
+		const damping = 0.95;
+		atoms.forEach(atom => atom.force.set(0, 0, 0));
+
+		const bondMap = new Map();
+		atoms.forEach(atom => bondMap.set(atom, []));
+		bonds.forEach(bond => {
+			bondMap.get(bond.atom1).push(bond.atom2);
+			bondMap.get(bond.atom2).push(bond.atom1);
+		});
+
+		for (let i = 0; i < atoms.length; i++) {
+			for (let j = i + 1; j < atoms.length; j++) {
+				const atom1 = atoms[i];
+				const atom2 = atoms[j];
+
+				const isBonded = bondMap.get(atom1).includes(atom2);
+				if (isBonded) continue;
+
+				const delta = new THREE.Vector3().subVectors(atom1.position, atom2.position);
+				const distance = delta.length();
+				if (distance > 0.1) {
+					const force = delta.multiplyScalar(repulsionStrength / (distance * distance * distance));
+					atom1.force.add(force);
+					atom2.force.sub(force);
+				}
 			}
 		}
+
+		bonds.forEach(bond => {
+			const { atom1, atom2, order } = bond;
+			const idealLength = getIdealBondLength(atom1, atom2, order);
+			const delta = new THREE.Vector3().subVectors(atom1.position, atom2.position);
+			const distance = delta.length();
+			const displacement = distance - idealLength;
+			const force = delta.normalize().multiplyScalar(-bondStrength * displacement * order);
+			atom1.force.add(force);
+			atom2.force.sub(force);
+		});
+		atoms.forEach(atom => {
+			if (atom === draggedAtom) return;
+			atom.velocity.add(atom.force.multiplyScalar(deltaTime));
+			atom.velocity.multiplyScalar(damping);
+			atom.position.add(atom.velocity.clone().multiplyScalar(deltaTime));
+		});
 	}
-	bonds.forEach(bond => {
-		const { atom1, atom2, order } = bond;
-		const idealLength = getIdealBondLength(atom1, atom2, order);
-		const delta = new THREE.Vector3().subVectors(atom1.position, atom2.position);
-		const distance = delta.length();
-		const displacement = distance - idealLength;
-		const force = delta.normalize().multiplyScalar(-bondStrength * displacement * order);
-		atom1.force.add(force);
-		atom2.force.sub(force);
-	});
+
+	if (atoms.length > 0 && !draggedAtom) {
+		const centroid = new THREE.Vector3();
+		atoms.forEach(atom => centroid.add(atom.position));
+		centroid.divideScalar(atoms.length);
+		const offset = centroid.negate();
+		atoms.forEach(atom => {
+			atom.position.add(offset);
+		});
+	}
+
 	atoms.forEach(atom => {
-		if (atom === draggedAtom) return;
-		atom.velocity.add(atom.force.multiplyScalar(deltaTime));
-		atom.velocity.multiplyScalar(damping);
-		atom.position.add(atom.velocity.clone().multiplyScalar(deltaTime));
 		atom.mesh.position.copy(atom.position);
 	});
 }
@@ -1305,60 +1418,127 @@ function onFormulaInputChange(event) {
 }
 
 function parseFormula(formula) {
-	const tokens = formula.replace(/\s+/g, '').match(/([A-Z][a-z]?\d*|[()\[\]{}]|\d+)/g);
-	if (!tokens) return null;
+    formula = formula.replace(/\s+/g, '');
+    if (!formula) return null;
 
-	let balance = 0;
-	for (const token of tokens) {
-		if ('([{'.includes(token)) balance++;
-		if (')]}'.includes(token)) balance--;
-	}
-	if (balance !== 0) return null;
+    const atoms = [];
+    const bonds = [];
+    const branchStack = [];
+    const ringClosures = {};
+    let lastAtomId = null;
+    let bondOrder = 1;
+    let atomIdCounter = 0;
+    let i = 0;
 
-	function parseTokens(tokenStream) {
-		const structure = [];
-		let currentGroup = { atoms: {}, children: [] };
+    while (i < formula.length) {
+        let char = formula[i];
+        
+        if (char.match(/[A-Z]/)) {
+            let symbol = char;
+            i++;
+            if (i < formula.length && formula[i].match(/[a-z]/)) {
+                symbol += formula[i];
+                i++;
+            }
+            
+            const elData = elementsData.find(e => e.symbol === symbol);
+            if (!elData) return null;
 
-		while (tokenStream.length > 0) {
-			const token = tokenStream.shift();
+            const newAtom = { id: atomIdCounter++, symbol: symbol, explicitHydrogens: -1 };
+            atoms.push(newAtom);
+            if (lastAtomId !== null) {
+                bonds.push({ from: lastAtomId, to: newAtom.id, order: bondOrder });
+            }
+            lastAtomId = newAtom.id;
+            bondOrder = 1;
 
-			if (token.match(/^[A-Z][a-z]?\d*$/)) {
-				const match = token.match(/([A-Z][a-z]?)(\d*)/);
-				const symbol = match[1];
-				const count = match[2] ? parseInt(match[2], 10) : 1;
-				if (!elementsData.some(el => el.symbol === symbol)) throw new Error('Invalid element');
-				currentGroup.atoms[symbol] = (currentGroup.atoms[symbol] || 0) + count;
-			} else if ('([{'.includes(token)) {
-				if (Object.keys(currentGroup.atoms).length > 0) {
-					structure.push(currentGroup);
-					currentGroup = { atoms: {}, children: [] };
-				}
-				const subStructure = parseTokens(tokenStream);
-				let repeat = 1;
-				if (tokenStream.length > 0 && tokenStream[0].match(/^\d+$/)) {
-					repeat = parseInt(tokenStream.shift(), 10);
-				}
-				for (let i = 0; i < repeat; i++) {
-					currentGroup.children.push(subStructure);
-				}
-			} else if (')]}'.includes(token)) {
-				break;
-			} else {
-				throw new Error('Invalid token');
+        } else if (char === '[') {
+            i++;
+            const endBracket = formula.indexOf(']', i);
+            if(endBracket === -1) return null;
+            const bracketContent = formula.substring(i, endBracket);
+            i = endBracket + 1;
+            
+            const match = bracketContent.match(/([A-Z][a-z]?)H?(\d*)/);
+            if (!match) return null;
+            
+            const symbol = match[1];
+            const explicitHydrogens = match[2] ? parseInt(match[2], 10) : (bracketContent.includes('H') ? 1 : 0);
+            
+            const elData = elementsData.find(e => e.symbol === symbol);
+            if (!elData) return null;
+
+            const newAtom = { id: atomIdCounter++, symbol: symbol, explicitHydrogens: explicitHydrogens };
+            atoms.push(newAtom);
+            if (lastAtomId !== null) {
+                bonds.push({ from: lastAtomId, to: newAtom.id, order: bondOrder });
+            }
+            lastAtomId = newAtom.id;
+            bondOrder = 1;
+
+        } else if (char === '(') {
+            branchStack.push(lastAtomId);
+            i++;
+        } else if (char === ')') {
+            lastAtomId = branchStack.pop();
+            i++;
+        } else if (char.match(/[=\-#]/)) {
+            if (char === '=') bondOrder = 2;
+            else if (char === '#') bondOrder = 3;
+            else bondOrder = 1;
+            i++;
+        } else if (char.match(/\d/)) {
+            const ringId = char;
+            i++;
+            if (ringClosures[ringId]) {
+                bonds.push({ from: ringClosures[ringId], to: lastAtomId, order: bondOrder });
+                delete ringClosures[ringId];
+            } else {
+                ringClosures[ringId] = lastAtomId;
+            }
+            bondOrder = 1;
+        } else {
+            return null;
+        }
+    }
+
+    if (Object.keys(ringClosures).length > 0 || branchStack.length > 0) return null;
+
+    const finalAtoms = [...atoms];
+	const originalAtomCount = atoms.length;
+	const hData = elementsData.find(e => e.symbol === 'H');
+
+	for (let j = 0; j < originalAtomCount; j++) {
+		const atom = finalAtoms[j];
+		if (!hData) break;
+		
+		let neededHydrogens = 0;
+		if (atom.explicitHydrogens !== -1) {
+			neededHydrogens = atom.explicitHydrogens;
+		} else {
+			const elData = elementsData.find(e => e.symbol === atom.symbol);
+			if (!elData) continue;
+			
+			const currentBondOrderSum = bonds.reduce((acc, bond) => {
+				if (bond.from === atom.id || bond.to === atom.id) return acc + bond.order;
+				return acc;
+			}, 0);
+			
+			const typicalValence = { 'B': 3, 'C': 4, 'N': 3, 'O': 2, 'P': 3, 'S': 2, 'F': 1, 'Cl': 1, 'Br': 1, 'I': 1 };
+			const maxBonds = elData.maxBonds || typicalValence[atom.symbol] || 0;
+			
+			if (maxBonds > currentBondOrderSum) {
+				neededHydrogens = maxBonds - currentBondOrderSum;
 			}
 		}
-		if (Object.keys(currentGroup.atoms).length > 0 || currentGroup.children.length > 0) {
-			structure.push(currentGroup);
-		}
-		return structure;
-	}
 
-	try {
-		const result = parseTokens([...tokens]);
-		return result.length > 0 ? [result] : null;
-	} catch (e) {
-		return null;
+		for (let k = 0; k < neededHydrogens; k++) {
+			const hydroId = atomIdCounter++;
+			finalAtoms.push({ id: hydroId, symbol: 'H' });
+			bonds.push({ from: atom.id, to: hydroId, order: 1 });
+		}
 	}
+	return { atoms: finalAtoms, bonds: bonds };
 }
 
 function ensureConnectivity() {
@@ -1422,25 +1602,54 @@ function ensureConnectivity() {
 
 function buildMoleculeFromStructure(structure) {
 	resetSimulation(true);
-	if (!structure || structure.length === 0) {
+	if (!structure || structure.atoms.length === 0) {
 		updateMoleculeInfo();
 		return;
 	}
 
-	buildRecursive(structure[0]);
+	const { atoms: atomDefs, bonds: bondDefs } = structure;
+	const idToThreeAtom = new Map();
 
-	saturateWithMultipleBonds();
-	ensureConnectivity();
+	atomDefs.forEach(atomDef => {
+		const data = elementsData.find(e => e.symbol === atomDef.symbol);
+		if (data) {
+			const threeAtom = addAtom(data, new THREE.Vector3());
+			idToThreeAtom.set(atomDef.id, threeAtom);
+		}
+	});
 
-	atoms.forEach(updateAtomGeometry);
-	setTimeout(() => {
-		atoms.forEach(centerAtom => {
-			updateAtomGeometry(centerAtom);
-		});
-		updatePeriodicTableState();
-		updateMoleculeInfo();
-		validateAndColorAtoms();
-	}, 100);
+	if (atoms.length === 0) return;
+
+	const placementRadius = atomDefs.length > 1 ? Math.cbrt(atomDefs.length) * 2.0 : 0;
+	atoms.forEach(atom => {
+		atom.position.set(
+			(Math.random() - 0.5) * placementRadius,
+			(Math.random() - 0.5) * placementRadius,
+			(Math.random() - 0.5) * placementRadius
+		);
+		atom.mesh.position.copy(atom.position);
+	});
+
+	bondDefs.forEach(bondDef => {
+		const atom1 = idToThreeAtom.get(bondDef.from);
+		const atom2 = idToThreeAtom.get(bondDef.to);
+		if (atom1 && atom2) {
+			const existing = bonds.find(b => (b.atom1 === atom1 && b.atom2 === atom2) || (b.atom1 === atom2 && b.atom2 === atom1));
+			if (!existing) {
+				const bond = { atom1, atom2, order: bondDef.order, meshes: [] };
+				bonds.push(bond);
+				atom1.bonds.push(bond);
+				atom2.bonds.push(bond);
+			}
+		}
+	});
+
+	atoms.forEach(atom => updateAtomGeometry(atom));
+
+	updatePeriodicTableState();
+	updateMoleculeInfo();
+	validateAndColorAtoms();
+	updateBondMeshes();
 }
 
 function buildRecursive(nodes, attachToAtom = null) {
@@ -1454,6 +1663,8 @@ function buildRecursive(nodes, attachToAtom = null) {
 		let builtGroup;
 		if (formula === 'C6H5') {
 			builtGroup = buildPhenylGroup();
+		} else if (formula === 'C6H6') {
+			builtGroup = buildBenzeneMolecule();
 		} else {
 			builtGroup = buildGenericGroup(groupAtomsComp);
 		}
@@ -1512,6 +1723,10 @@ function buildPhenylGroup() {
 		createBond(carbons[i], carbons[(i + 1) % 6]);
 	}
 
+	for (let i = 0; i < 6; i += 2) {
+		incrementBondOrder(carbons[i], carbons[(i + 1) % 6]);
+	}
+
 	const hydrogenData = elementsData.find(e => e.symbol === 'H');
 	for (let i = 1; i < 6; i++) {
 		const hAtom = placeAtom(hydrogenData, carbons[i]);
@@ -1519,6 +1734,39 @@ function buildPhenylGroup() {
 	}
 	
 	const attachmentPoint = carbons[0];
+	return { atoms: newAtoms, attachmentPoint: attachmentPoint, chainEnd: attachmentPoint };
+}
+
+function buildBenzeneMolecule() {
+	const carbons = [];
+	const newAtoms = [];
+	const radius = 1.4;
+	const carbonData = elementsData.find(e => e.symbol === 'C');
+
+	for (let i = 0; i < 6; i++) {
+		const angle = (i / 6) * 2 * Math.PI;
+		const x = radius * Math.cos(angle);
+		const y = radius * Math.sin(angle);
+		const carbonAtom = addAtom(carbonData, new THREE.Vector3(x, y, 0));
+		carbons.push(carbonAtom);
+		newAtoms.push(carbonAtom);
+	}
+
+	for (let i = 0; i < 6; i++) {
+		createBond(carbons[i], carbons[(i + 1) % 6]);
+	}
+
+	for (let i = 0; i < 6; i += 2) {
+		incrementBondOrder(carbons[i], carbons[(i + 1) % 6]);
+	}
+
+	const hydrogenData = elementsData.find(e => e.symbol === 'H');
+	for (let i = 0; i < 6; i++) {
+		const hAtom = placeAtom(hydrogenData, carbons[i]);
+		newAtoms.push(hAtom);
+	}
+
+	const attachmentPoint = carbons.length > 0 ? carbons[0] : null;
 	return { atoms: newAtoms, attachmentPoint: attachmentPoint, chainEnd: attachmentPoint };
 }
 
@@ -1658,7 +1906,7 @@ function onWindowResize() {
 const clock = new THREE.Clock();
 function animate() {
 	requestAnimationFrame(animate);
-	const deltaTime = Math.min(clock.getDelta(), 0.1);
+	const deltaTime = Math.min(clock.getDelta(), 0.05);
 	const elapsedTime = clock.getElapsedTime();
 
 	if (isPlacementModeActive && placementHelpers.length > 0) {

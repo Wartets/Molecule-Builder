@@ -60,7 +60,7 @@ canvas {
 
 #settings-icon {
 	top: 15px;
-	left: 15px;
+	right: 15px;
 	z-index: 11;
 }
 
@@ -77,7 +77,6 @@ canvas {
 }
 
 #ui-container {
-	transform: scale(0.8);
 	position: fixed;
 	z-index: 10;
 	background-color: rgba(28, 28, 30, 0.85);
@@ -89,7 +88,9 @@ canvas {
 	max-height: calc(100vh - 30px);
 	display: flex;
 	flex-direction: column;
-	transform-origin: top left;
+	top: 15px;
+	right: 15px;
+	transform-origin: top right;
 	transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease;
 }
 
@@ -97,6 +98,21 @@ canvas {
 	transform: scale(0);
 	opacity: 0;
 	pointer-events: none;
+}
+
+#ui-container.hiding {
+	animation: fly-out 0.4s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+
+@keyframes fly-out {
+	from {
+		transform: var(--current-transform);
+		opacity: 1;
+	}
+	to {
+		transform: translate(var(--end-tx), var(--end-ty)) scale(0);
+		opacity: 0;
+	}
 }
 
 #ui-container .header {
@@ -234,17 +250,18 @@ canvas {
 #resize-handle {
 	position: absolute;
 	bottom: 5px;
-	right: 5px;
+	left: 5px;
 	width: 15px;
 	height: 15px;
-	cursor: se-resize;
+	cursor: sw-resize;
 	z-index: 12;
 	opacity: 0.7;
 	background-image:
 		linear-gradient(135deg, transparent 45%, #aaa 45%, #aaa 55%, transparent 55%),
 		linear-gradient(135deg, transparent 65%, #aaa 65%, #aaa 75%, transparent 75%);
+	transform: rotate(90deg);
 	background-repeat: no-repeat;
-	background-position: bottom right;
+	background-position: bottom left;
 }
 
 #resize-handle:hover {

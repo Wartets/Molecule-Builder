@@ -1,0 +1,29 @@
+Ajouter un tutoriel ou une aide pour expliquer les commandes clavier.
+Afficher des infobulles dynamiques pour les contrôles (ex: "Maintenir Ctrl pour déplacer").
+Créer un panneau d'information dédié pour l'atome sélectionné affichant ses propriétés.
+Permettre la sauvegarde et le chargement de molécules.
+Générer un lien pour partager la molécule actuelle.
+Développer différents styles de rendu visuel (éclaté, fil de fer, bâtonnets seuls).
+ Visualiser les doublets non liants sur les atomes.
+Afficher les charges formelles directement sur les atomes.
+Intégrer un outil pour mesurer les longueurs et les angles de liaison.
+Calculer et afficher la masse molaire de la molécule.
+Permettre de briser une liaison spécifique sans supprimer un atome.
+Implémenter la rotation d'une partie de la molécule autour d'une liaison simple.
+Créer une bibliothèque de groupes fonctionnels prédéfinis.
+Supporter l'import et l'export de formats de fichiers chimiques (MOL, PDB).
+Fonctionnalité pour exporter la vue 3D en tant qu'image.
+Améliorer la simulation physique avec une minimisation d'énergie plus poussée.
+Proposer différents thèmes de couleur pour l'interface et les modèles atomiques.
+Gérer visuellement les liaisons aromatiques de manière distincte (ex: un cercle).
+Ajouter un bouton de "mode liaison" explicite pour les écrans tactiles.
+Enrichir le menu des paramètres avec des options de rendu ou de simulation.
+Optimiser les performances pour pouvoir gérer de très grandes molécules.
+Ajouter des fonds de scène 3D plus esthétiques.
+Permettre la construction plus facile d'ions polyatomiques.
+Outils pour la création de polymères.
+Fonctionnalité annuler/rétablir (undo/redo).
+Support des isotopes pour les atomes.
+Calculer le moment dipolaire de la molécule.
+Afficher la surface de van der Waals.
+Intégrer une recherche de molécules via une API externe comme PubChem.
