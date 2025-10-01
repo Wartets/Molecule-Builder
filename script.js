@@ -504,10 +504,10 @@ function initUI() {
 		const rect = uiContainer.getBoundingClientRect();
 		const currentTransform = lastKnownState.transform || 'scale(1)';
 
-		const destX = window.innerWidth - rect.width - 15;
-		const destY = 15;
+		const destX = window.innerWidth - 35;
+		const destY = 35;
 
-		const translateX = destX - rect.left;
+		const translateX = destX - rect.right;
 		const translateY = destY - rect.top;
 
 		uiContainer.style.setProperty('--current-transform', currentTransform);
@@ -571,8 +571,8 @@ function initUI() {
 		const rect = infoContainer.getBoundingClientRect();
 		const currentTransform = (infoLastKnownState && infoLastKnownState.transform) || 'scale(1)';
 
-		const destX = 15;
-		const destY = 15;
+		const destX = 35;
+		const destY = 35;
 
 		const translateX = destX - rect.left;
 		const translateY = destY - rect.top;
