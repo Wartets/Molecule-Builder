@@ -23,6 +23,37 @@ let formulaInput;
 let buildTimeout;
 let currentFormulaString = null;
 
+const backgroundVertexShader = `
+	varying vec3 vPosition;
+	void main() {
+		vPosition = position;
+		gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+	}
+`;
+
+const backgroundFragmentShader = `
+	varying vec3 vPosition;
+	uniform vec3 topColor;
+	uniform vec3 bottomColor;
+	uniform float exponent;
+
+	float random(vec2 st) {
+		return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+	}
+
+	void main() {
+		vec3 normalized = normalize(vPosition);
+		float t = (normalized.y + 1.0) / 2.0;
+		t = pow(t, exponent);
+		vec3 color = mix(bottomColor, topColor, t);
+		
+		float dither = (random(gl_FragCoord.xy) - 0.5) / 255.0;
+		color += dither;
+
+		gl_FragColor = vec4(color, 1.0);
+	}
+`;
+
 let isCtrlPressed = false;
 let isShiftPressed = false;
 let draggedAtom = null;
@@ -58,7 +89,22 @@ for (const formula in KNOWN_COMPOUNDS) {
 
 function init() {
 	scene = new THREE.Scene();
-	scene.background = new THREE.Color(0x111111);
+
+	const backgroundGeometry = new THREE.SphereGeometry(500, 64, 32);
+	const backgroundMaterial = new THREE.ShaderMaterial({
+		uniforms: {
+			topColor: { value: new THREE.Color(0x171716) },
+			bottomColor: { value: new THREE.Color(0x090910) },
+			exponent: { value: 0.5 }
+		},
+		vertexShader: backgroundVertexShader,
+		fragmentShader: backgroundFragmentShader,
+		side: THREE.BackSide,
+		depthWrite: false
+	});
+	const background = new THREE.Mesh(backgroundGeometry, backgroundMaterial);
+	scene.add(background);
+	
 	camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 	camera.position.z = 15;
 	renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -74,7 +120,7 @@ function init() {
 	const edges = new THREE.EdgesGeometry(boxGeometry);
 	const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333 }));
 
-	line.rotation.y = THREE.MathUtils.degToRad(90 * (1 - 2*Math.random()));
+	// line.rotation.y = THREE.MathUtils.degToRad(90 * (1 - 2*Math.random()));
 
 	scene.add(line);
 
@@ -111,6 +157,401 @@ function initEventListeners() {
 	renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
 	renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
 	renderer.domElement.addEventListener('touchend', onTouchEnd);
+}
+
+function initUI() {
+	const uiContainer = document.getElementById('ui-container');
+	const header = uiContainer.querySelector('.header');
+	const toggleButton = document.getElementById('toggle-button');
+	const settingsIcon = document.getElementById('settings-icon');
+	let lastKnownState = null;
+
+	const saveCurrentState = () => {
+		lastKnownState = {
+			left: uiContainer.style.left,
+			top: uiContainer.style.top,
+			right: uiContainer.style.right,
+			transform: uiContainer.style.transform,
+			transformOrigin: uiContainer.style.transformOrigin,
+		};
+	};
+
+	toggleButton.addEventListener('click', () => {
+		saveCurrentState();
+		const rect = uiContainer.getBoundingClientRect();
+		const currentTransform = lastKnownState.transform || 'scale(1)';
+
+		const destX = window.innerWidth - 35;
+		const destY = 35;
+
+		const translateX = destX - rect.right;
+		const translateY = destY - rect.top;
+
+		uiContainer.style.setProperty('--current-transform', currentTransform);
+		uiContainer.style.setProperty('--end-tx', `${translateX}px`);
+		uiContainer.style.setProperty('--end-ty', `${translateY}px`);
+
+		uiContainer.classList.add('hiding');
+		settingsIcon.classList.remove('hidden');
+
+		uiContainer.addEventListener('animationend', () => {
+			uiContainer.classList.add('hidden');
+			uiContainer.classList.remove('hiding');
+			
+			uiContainer.style.top = '15px';
+			uiContainer.style.right = '15px';
+			uiContainer.style.left = 'auto';
+			uiContainer.style.transformOrigin = '';
+
+			uiContainer.style.removeProperty('--current-transform');
+			uiContainer.style.removeProperty('--end-tx');
+			uiContainer.style.removeProperty('--end-ty');
+		}, { once: true });
+	});
+
+	settingsIcon.addEventListener('click', () => {
+		if (lastKnownState) {
+			uiContainer.style.left = lastKnownState.left;
+			uiContainer.style.top = lastKnownState.top;
+			uiContainer.style.right = lastKnownState.right;
+			uiContainer.style.transform = lastKnownState.transform;
+			uiContainer.style.transformOrigin = lastKnownState.transformOrigin;
+		} else {
+			uiContainer.style.top = '15px';
+			uiContainer.style.right = '15px';
+			uiContainer.style.left = 'auto';
+			uiContainer.style.transform = `scale(${currentScale})`;
+			uiContainer.style.transformOrigin = 'top right';
+		}
+		uiContainer.classList.remove('hidden');
+		uiContainer.classList.remove('hiding');
+		settingsIcon.classList.add('hidden');
+	});
+
+	const infoContainer = document.getElementById('info-ui-container');
+	const infoButton = document.getElementById('info-button');
+	const infoCloseButton = document.getElementById('info-close-button');
+	const infoHeader = infoContainer.querySelector('.header');
+	let infoLastKnownState = null;
+
+	const saveInfoState = () => {
+		infoLastKnownState = {
+			left: infoContainer.style.left,
+			top: infoContainer.style.top,
+			transform: infoContainer.style.transform,
+			transformOrigin: infoContainer.style.transformOrigin,
+		};
+	};
+
+	const hideInfoPanel = () => {
+		saveInfoState();
+		const rect = infoContainer.getBoundingClientRect();
+		const currentTransform = (infoLastKnownState && infoLastKnownState.transform) || 'scale(1)';
+
+		const destX = 35;
+		const destY = 35;
+
+		const translateX = destX - rect.left;
+		const translateY = destY - rect.top;
+
+		infoContainer.style.setProperty('--current-transform', currentTransform);
+		infoContainer.style.setProperty('--end-tx', `${translateX}px`);
+		infoContainer.style.setProperty('--end-ty', `${translateY}px`);
+
+		infoContainer.classList.add('hiding');
+		infoButton.classList.remove('hidden');
+
+		infoContainer.addEventListener('animationend', () => {
+			infoContainer.classList.add('hidden');
+			infoContainer.classList.remove('hiding');
+			infoContainer.style.top = '15px';
+			infoContainer.style.left = '15px';
+			infoContainer.style.right = 'auto';
+			infoContainer.style.transformOrigin = 'top left';
+			infoContainer.style.removeProperty('--current-transform');
+			infoContainer.style.removeProperty('--end-tx');
+			infoContainer.style.removeProperty('--end-ty');
+		}, { once: true });
+	};
+
+	const showInfoPanel = () => {
+		if (infoLastKnownState) {
+			infoContainer.style.left = infoLastKnownState.left;
+			infoContainer.style.top = infoLastKnownState.top;
+			infoContainer.style.transform = infoLastKnownState.transform;
+			infoContainer.style.transformOrigin = infoLastKnownState.transformOrigin;
+		} else {
+			infoContainer.style.top = '15px';
+			infoContainer.style.left = '15px';
+			infoContainer.style.right = 'auto';
+			infoContainer.style.transform = `scale(1)`;
+			infoContainer.style.transformOrigin = 'top left';
+		}
+		infoContainer.classList.remove('hidden');
+		infoContainer.classList.remove('hiding');
+		infoButton.classList.add('hidden');
+	};
+
+	infoButton.addEventListener('click', () => {
+		if (infoContainer.classList.contains('hidden')) {
+			showInfoPanel();
+		} else {
+			hideInfoPanel();
+		}
+	});
+
+	infoCloseButton.addEventListener('click', hideInfoPanel);
+
+	let isInfoDragging = false;
+	let infoOffsetX, infoOffsetY;
+	const onInfoMouseDown = (e) => {
+		if (e.target.closest('button')) return;
+		isInfoDragging = true;
+		const rect = infoContainer.getBoundingClientRect();
+		infoContainer.style.right = 'auto';
+		infoContainer.style.transformOrigin = 'top left';
+		infoContainer.style.left = `${rect.left}px`;
+		infoContainer.style.top = `${rect.top}px`;
+		infoOffsetX = e.clientX - rect.left;
+		infoOffsetY = e.clientY - rect.top;
+		document.addEventListener('mousemove', onInfoMouseMove);
+		document.addEventListener('mouseup', onInfoMouseUp);
+	};
+
+	const onInfoMouseMove = (e) => {
+		if (!isInfoDragging) return;
+		e.preventDefault();
+		const x = e.clientX - infoOffsetX;
+		const y = e.clientY - infoOffsetY;
+		infoContainer.style.left = `${x}px`;
+		infoContainer.style.top = `${y}px`;
+	};
+
+	const onInfoMouseUp = () => {
+		isInfoDragging = false;
+		document.removeEventListener('mousemove', onInfoMouseMove);
+		document.removeEventListener('mouseup', onInfoMouseUp);
+	};
+	infoHeader.addEventListener('mousedown', onInfoMouseDown);
+
+	const toolsContainer = document.getElementById('tools-ui-container');
+	const toolsIcon = document.getElementById('tools-icon');
+	const toolsCloseButton = document.getElementById('tools-close-button');
+	const toolsHeader = toolsContainer.querySelector('.header');
+	let toolsLastKnownState = null;
+
+	const saveToolsState = () => {
+		toolsLastKnownState = {
+			left: toolsContainer.style.left,
+			top: toolsContainer.style.top,
+			transform: toolsContainer.style.transform,
+			transformOrigin: toolsContainer.style.transformOrigin,
+		};
+	};
+
+	const hideToolsPanel = () => {
+		saveToolsState();
+		const rect = toolsContainer.getBoundingClientRect();
+		const currentTransform = (toolsLastKnownState && toolsLastKnownState.transform) || 'scale(1)';
+	
+		const destX = 35;
+		const destY = window.innerHeight - 35;
+	
+		const translateX = destX - rect.left;
+		const translateY = destY - rect.top;
+	
+		toolsContainer.style.setProperty('--current-transform', currentTransform);
+		toolsContainer.style.setProperty('--end-tx', `${translateX}px`);
+		toolsContainer.style.setProperty('--end-ty', `${translateY}px`);
+	
+		toolsContainer.classList.add('hiding');
+		toolsIcon.classList.remove('hidden');
+	
+		toolsContainer.addEventListener('animationend', () => {
+			toolsContainer.classList.add('hidden');
+			toolsContainer.classList.remove('hiding');
+			toolsContainer.style.bottom = '15px';
+			toolsContainer.style.left = '15px';
+			toolsContainer.style.top = 'auto';
+			toolsContainer.style.transformOrigin = 'bottom left';
+			toolsContainer.style.removeProperty('--current-transform');
+			toolsContainer.style.removeProperty('--end-tx');
+			toolsContainer.style.removeProperty('--end-ty');
+		}, { once: true });
+	};
+	
+	const showToolsPanel = () => {
+		if (toolsLastKnownState) {
+			toolsContainer.style.left = toolsLastKnownState.left;
+			toolsContainer.style.top = toolsLastKnownState.top;
+			toolsContainer.style.transform = toolsLastKnownState.transform;
+			toolsContainer.style.transformOrigin = toolsLastKnownState.transformOrigin;
+		} else {
+			toolsContainer.style.bottom = '15px';
+			toolsContainer.style.left = '15px';
+			toolsContainer.style.top = 'auto';
+			toolsContainer.style.transform = `scale(1)`;
+			toolsContainer.style.transformOrigin = 'bottom left';
+		}
+		toolsContainer.classList.remove('hidden');
+		toolsContainer.classList.remove('hiding');
+		toolsIcon.classList.add('hidden');
+	};
+
+	toolsIcon.addEventListener('click', () => {
+		if (toolsContainer.classList.contains('hidden')) {
+			showToolsPanel();
+		} else {
+			hideToolsPanel();
+		}
+	});
+	toolsCloseButton.addEventListener('click', hideToolsPanel);
+
+	let isToolsDragging = false;
+	let toolsOffsetX, toolsOffsetY;
+	const onToolsMouseDown = (e) => {
+		if (e.target.closest('button')) return;
+		isToolsDragging = true;
+		const rect = toolsContainer.getBoundingClientRect();
+		toolsContainer.style.left = `${rect.left}px`;
+		toolsContainer.style.top = `${rect.top}px`;
+		toolsContainer.style.bottom = 'auto';
+		toolsContainer.style.transformOrigin = 'top left';
+		toolsOffsetX = e.clientX - rect.left;
+		toolsOffsetY = e.clientY - rect.top;
+		document.addEventListener('mousemove', onToolsMouseMove);
+		document.addEventListener('mouseup', onToolsMouseUp);
+	};
+
+	const onToolsMouseMove = (e) => {
+		if (!isToolsDragging) return;
+		e.preventDefault();
+		const x = e.clientX - toolsOffsetX;
+		const y = e.clientY - toolsOffsetY;
+		toolsContainer.style.left = `${x}px`;
+		toolsContainer.style.top = `${y}px`;
+	};
+
+	const onToolsMouseUp = () => {
+		isToolsDragging = false;
+		document.removeEventListener('mousemove', onToolsMouseMove);
+		document.removeEventListener('mouseup', onToolsMouseUp);
+	};
+	toolsHeader.addEventListener('mousedown', onToolsMouseDown);
+
+	const fullscreenButton = document.getElementById('fullscreen-button');
+	fullscreenButton.addEventListener('click', () => {
+		if (!document.fullscreenElement) {
+			document.documentElement.requestFullscreen().catch(err => {
+				console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+			});
+		} else {
+			if (document.exitFullscreen) {
+				document.exitFullscreen();
+			}
+		}
+	});
+
+	document.addEventListener('fullscreenchange', () => {
+		const fullscreenIcon = document.getElementById('fullscreen-icon-img');
+		if (document.fullscreenElement) {
+			fullscreenIcon.src = 'fullscreen-exit-icon.svg';
+			fullscreenIcon.alt = 'Exit Fullscreen';
+		} else {
+			fullscreenIcon.src = 'fullscreen-icon.svg';
+			fullscreenIcon.alt = 'Fullscreen';
+		}
+	});
+
+	document.getElementById('reset-button').addEventListener('click', resetSimulation);
+
+	formulaInput = document.getElementById('formula-input');
+	formulaInput.addEventListener('input', onFormulaInputChange);
+
+	const resizeHandle = document.getElementById('resize-handle');
+	let isResizing = false;
+	let currentScale = 0.8;
+	let initialUnscaledWidth;
+	let initialMouseX;
+
+	uiContainer.style.transform = `scale(${currentScale})`;
+
+	const startResize = (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		isResizing = true;
+		
+		uiContainer.style.transformOrigin = 'top right';
+		const rect = uiContainer.getBoundingClientRect();
+		uiContainer.style.left = 'auto';
+		uiContainer.style.right = `${window.innerWidth - rect.right}px`;
+		
+		initialUnscaledWidth = uiContainer.offsetWidth;
+		initialMouseX = e.clientX;
+
+		document.body.style.cursor = 'sw-resize';
+		window.addEventListener('mousemove', doResize);
+		window.addEventListener('mouseup', stopResize);
+	};
+
+	const doResize = (e) => {
+		if (!isResizing) return;
+		const mouseDeltaX = initialMouseX - e.clientX;
+		const newScaledWidth = (initialUnscaledWidth * currentScale) + mouseDeltaX;
+		let newScale = newScaledWidth / initialUnscaledWidth;
+		newScale = Math.max(0.4, Math.min(newScale, 1.5));
+		uiContainer.style.transform = `scale(${newScale})`;
+	};
+	
+	const stopResize = () => {
+		if (!isResizing) return;
+		isResizing = false;
+		const transformValue = uiContainer.style.transform;
+		const scaleMatch = transformValue.match(/scale\(([^)]+)\)/);
+		if (scaleMatch && scaleMatch[1]) {
+			currentScale = parseFloat(scaleMatch[1]);
+		}
+		document.body.style.cursor = 'auto';
+		window.removeEventListener('mousemove', doResize);
+		window.removeEventListener('mouseup', stopResize);
+	};
+
+	resizeHandle.addEventListener('mousedown', startResize);
+
+	let isDragging = false;
+	let offsetX, offsetY;
+	const onMouseDown = (e) => {
+		if (e.target.closest('button') || e.target.id === 'resize-handle' || e.target.id === 'formula-input') return;
+		isDragging = true;
+
+		const rect = uiContainer.getBoundingClientRect();
+		uiContainer.style.right = 'auto';
+		uiContainer.style.transformOrigin = 'top left';
+		uiContainer.style.left = `${rect.left}px`;
+		uiContainer.style.top = `${rect.top}px`;
+
+		offsetX = e.clientX - rect.left;
+		offsetY = e.clientY - rect.top;
+
+		document.addEventListener('mousemove', onMouseMove);
+		document.addEventListener('mouseup', onMouseUp);
+	};
+
+	const onMouseMove = (e) => {
+		if (!isDragging) return;
+		e.preventDefault();
+		const x = e.clientX - offsetX;
+		const y = e.clientY - offsetY;
+		uiContainer.style.left = `${x}px`;
+		uiContainer.style.top = `${y}px`;
+	};
+
+	const onMouseUp = () => {
+		isDragging = false;
+		document.removeEventListener('mousemove', onMouseMove);
+		document.removeEventListener('mouseup', onMouseUp);
+	};
+	header.addEventListener('mousedown', onMouseDown);
 }
 
 function onKeyDown(event) {
@@ -480,296 +921,6 @@ function deleteAtom(atomToDelete) {
 		updateMoleculeInfo();
 		validateAndColorAtoms();
 	}
-}
-
-function initUI() {
-	const uiContainer = document.getElementById('ui-container');
-	const header = uiContainer.querySelector('.header');
-	const toggleButton = document.getElementById('toggle-button');
-	const settingsIcon = document.getElementById('settings-icon');
-	let lastKnownState = null;
-
-	const saveCurrentState = () => {
-		lastKnownState = {
-			left: uiContainer.style.left,
-			top: uiContainer.style.top,
-			right: uiContainer.style.right,
-			transform: uiContainer.style.transform,
-			transformOrigin: uiContainer.style.transformOrigin,
-		};
-	};
-
-	toggleButton.addEventListener('click', () => {
-		saveCurrentState();
-		const rect = uiContainer.getBoundingClientRect();
-		const currentTransform = lastKnownState.transform || 'scale(1)';
-
-		const destX = window.innerWidth - 35;
-		const destY = 35;
-
-		const translateX = destX - rect.right;
-		const translateY = destY - rect.top;
-
-		uiContainer.style.setProperty('--current-transform', currentTransform);
-		uiContainer.style.setProperty('--end-tx', `${translateX}px`);
-		uiContainer.style.setProperty('--end-ty', `${translateY}px`);
-
-		uiContainer.classList.add('hiding');
-		settingsIcon.classList.remove('hidden');
-
-		uiContainer.addEventListener('animationend', () => {
-			uiContainer.classList.add('hidden');
-			uiContainer.classList.remove('hiding');
-			
-			uiContainer.style.top = '15px';
-			uiContainer.style.right = '15px';
-			uiContainer.style.left = 'auto';
-			uiContainer.style.transformOrigin = '';
-
-			uiContainer.style.removeProperty('--current-transform');
-			uiContainer.style.removeProperty('--end-tx');
-			uiContainer.style.removeProperty('--end-ty');
-		}, { once: true });
-	});
-
-	settingsIcon.addEventListener('click', () => {
-		if (lastKnownState) {
-			uiContainer.style.left = lastKnownState.left;
-			uiContainer.style.top = lastKnownState.top;
-			uiContainer.style.right = lastKnownState.right;
-			uiContainer.style.transform = lastKnownState.transform;
-			uiContainer.style.transformOrigin = lastKnownState.transformOrigin;
-		} else {
-			uiContainer.style.top = '15px';
-			uiContainer.style.right = '15px';
-			uiContainer.style.left = 'auto';
-			uiContainer.style.transform = `scale(${currentScale})`;
-			uiContainer.style.transformOrigin = 'top right';
-		}
-		uiContainer.classList.remove('hidden');
-		uiContainer.classList.remove('hiding');
-		settingsIcon.classList.add('hidden');
-	});
-
-	const infoContainer = document.getElementById('info-ui-container');
-	const infoButton = document.getElementById('info-button');
-	const infoCloseButton = document.getElementById('info-close-button');
-	const infoHeader = infoContainer.querySelector('.header');
-	let infoLastKnownState = null;
-
-	const saveInfoState = () => {
-		infoLastKnownState = {
-			left: infoContainer.style.left,
-			top: infoContainer.style.top,
-			transform: infoContainer.style.transform,
-			transformOrigin: infoContainer.style.transformOrigin,
-		};
-	};
-
-	const hideInfoPanel = () => {
-		saveInfoState();
-		const rect = infoContainer.getBoundingClientRect();
-		const currentTransform = (infoLastKnownState && infoLastKnownState.transform) || 'scale(1)';
-
-		const destX = 35;
-		const destY = 35;
-
-		const translateX = destX - rect.left;
-		const translateY = destY - rect.top;
-
-		infoContainer.style.setProperty('--current-transform', currentTransform);
-		infoContainer.style.setProperty('--end-tx', `${translateX}px`);
-		infoContainer.style.setProperty('--end-ty', `${translateY}px`);
-
-		infoContainer.classList.add('hiding');
-		infoButton.classList.remove('hidden');
-
-		infoContainer.addEventListener('animationend', () => {
-			infoContainer.classList.add('hidden');
-			infoContainer.classList.remove('hiding');
-			infoContainer.style.top = '15px';
-			infoContainer.style.left = '15px';
-			infoContainer.style.right = 'auto';
-			infoContainer.style.transformOrigin = 'top left';
-			infoContainer.style.removeProperty('--current-transform');
-			infoContainer.style.removeProperty('--end-tx');
-			infoContainer.style.removeProperty('--end-ty');
-		}, { once: true });
-	};
-
-	const showInfoPanel = () => {
-		if (infoLastKnownState) {
-			infoContainer.style.left = infoLastKnownState.left;
-			infoContainer.style.top = infoLastKnownState.top;
-			infoContainer.style.transform = infoLastKnownState.transform;
-			infoContainer.style.transformOrigin = infoLastKnownState.transformOrigin;
-		} else {
-			infoContainer.style.top = '15px';
-			infoContainer.style.left = '15px';
-			infoContainer.style.right = 'auto';
-			infoContainer.style.transform = `scale(1)`;
-			infoContainer.style.transformOrigin = 'top left';
-		}
-		infoContainer.classList.remove('hidden');
-		infoContainer.classList.remove('hiding');
-		infoButton.classList.add('hidden');
-	};
-
-	infoButton.addEventListener('click', () => {
-		if (infoContainer.classList.contains('hidden')) {
-			showInfoPanel();
-		} else {
-			hideInfoPanel();
-		}
-	});
-
-	infoCloseButton.addEventListener('click', hideInfoPanel);
-
-	let isInfoDragging = false;
-	let infoOffsetX, infoOffsetY;
-	const onInfoMouseDown = (e) => {
-		if (e.target.closest('button')) return;
-		isInfoDragging = true;
-		const rect = infoContainer.getBoundingClientRect();
-		infoContainer.style.right = 'auto';
-		infoContainer.style.transformOrigin = 'top left';
-		infoContainer.style.left = `${rect.left}px`;
-		infoContainer.style.top = `${rect.top}px`;
-		infoOffsetX = e.clientX - rect.left;
-		infoOffsetY = e.clientY - rect.top;
-		document.addEventListener('mousemove', onInfoMouseMove);
-		document.addEventListener('mouseup', onInfoMouseUp);
-	};
-
-	const onInfoMouseMove = (e) => {
-		if (!isInfoDragging) return;
-		e.preventDefault();
-		const x = e.clientX - infoOffsetX;
-		const y = e.clientY - infoOffsetY;
-		infoContainer.style.left = `${x}px`;
-		infoContainer.style.top = `${y}px`;
-	};
-
-	const onInfoMouseUp = () => {
-		isInfoDragging = false;
-		document.removeEventListener('mousemove', onInfoMouseMove);
-		document.removeEventListener('mouseup', onInfoMouseUp);
-	};
-	infoHeader.addEventListener('mousedown', onInfoMouseDown);
-
-	const fullscreenButton = document.getElementById('fullscreen-button');
-	fullscreenButton.addEventListener('click', () => {
-		if (!document.fullscreenElement) {
-			document.documentElement.requestFullscreen().catch(err => {
-				console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-			});
-		} else {
-			if (document.exitFullscreen) {
-				document.exitFullscreen();
-			}
-		}
-	});
-
-	document.addEventListener('fullscreenchange', () => {
-		const fullscreenIcon = document.getElementById('fullscreen-icon-img');
-		if (document.fullscreenElement) {
-			fullscreenIcon.src = 'fullscreen-exit-icon.svg';
-			fullscreenIcon.alt = 'Exit Fullscreen';
-		} else {
-			fullscreenIcon.src = 'fullscreen-icon.svg';
-			fullscreenIcon.alt = 'Fullscreen';
-		}
-	});
-
-	document.getElementById('reset-button').addEventListener('click', resetSimulation);
-
-	formulaInput = document.getElementById('formula-input');
-	formulaInput.addEventListener('input', onFormulaInputChange);
-
-	const resizeHandle = document.getElementById('resize-handle');
-	let isResizing = false;
-	let currentScale = 0.8;
-	let initialUnscaledWidth;
-	let initialMouseX;
-
-	uiContainer.style.transform = `scale(${currentScale})`;
-
-	const startResize = (e) => {
-		e.preventDefault();
-		e.stopPropagation();
-		isResizing = true;
-		
-		uiContainer.style.transformOrigin = 'top right';
-		const rect = uiContainer.getBoundingClientRect();
-		uiContainer.style.left = 'auto';
-		uiContainer.style.right = `${window.innerWidth - rect.right}px`;
-		
-		initialUnscaledWidth = uiContainer.offsetWidth;
-		initialMouseX = e.clientX;
-
-		document.body.style.cursor = 'sw-resize';
-		window.addEventListener('mousemove', doResize);
-		window.addEventListener('mouseup', stopResize);
-	};
-
-	const doResize = (e) => {
-		if (!isResizing) return;
-		const mouseDeltaX = initialMouseX - e.clientX;
-		const newScaledWidth = (initialUnscaledWidth * currentScale) + mouseDeltaX;
-		let newScale = newScaledWidth / initialUnscaledWidth;
-		newScale = Math.max(0.4, Math.min(newScale, 1.5));
-		uiContainer.style.transform = `scale(${newScale})`;
-	};
-	
-	const stopResize = () => {
-		if (!isResizing) return;
-		isResizing = false;
-		const transformValue = uiContainer.style.transform;
-		const scaleMatch = transformValue.match(/scale\(([^)]+)\)/);
-		if (scaleMatch && scaleMatch[1]) {
-			currentScale = parseFloat(scaleMatch[1]);
-		}
-		document.body.style.cursor = 'auto';
-		window.removeEventListener('mousemove', doResize);
-		window.removeEventListener('mouseup', stopResize);
-	};
-
-	resizeHandle.addEventListener('mousedown', startResize);
-
-	let isDragging = false;
-	let offsetX, offsetY;
-	const onMouseDown = (e) => {
-		if (e.target.closest('button') || e.target.id === 'resize-handle' || e.target.id === 'formula-input') return;
-		isDragging = true;
-
-		const rect = uiContainer.getBoundingClientRect();
-		uiContainer.style.right = 'auto';
-		uiContainer.style.transformOrigin = 'top left';
-		uiContainer.style.left = `${rect.left}px`;
-		uiContainer.style.top = `${rect.top}px`;
-
-		offsetX = e.clientX - rect.left;
-		offsetY = e.clientY - rect.top;
-
-		document.addEventListener('mousemove', onMouseMove);
-		document.addEventListener('mouseup', onMouseUp);
-	};
-
-	const onMouseMove = (e) => {
-		if (!isDragging) return;
-		e.preventDefault();
-		const x = e.clientX - offsetX;
-		const y = e.clientY - offsetY;
-		uiContainer.style.left = `${x}px`;
-		uiContainer.style.top = `${y}px`;
-	};
-
-	const onMouseUp = () => {
-		isDragging = false;
-		document.removeEventListener('mousemove', onMouseMove);
-		document.removeEventListener('mouseup', onMouseUp);
-	};
-	header.addEventListener('mousedown', onMouseDown);
 }
 
 function getBondOrderSum(atom) {
