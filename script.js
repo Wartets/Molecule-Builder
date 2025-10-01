@@ -8,6 +8,8 @@ const CHEMICAL_DATA = {
 	COMMON_OXIDATION_STATES: {'Fe': [3, 2], 'Cu': [2, 1]},
 	ROMAN_NUMERALS: {1: 'I', 2: 'II', 3: 'III'}
 };
+const POLYATOMIC_IONS = {'H3O': { name: 'hydronium', charge: 1 }, 'NH4': { name: 'ammonium', charge: 1 }};
+const KNOWN_COMPOUNDS = {'H2O': 'Water', 'H2O2': 'Hydrogen Peroxide', 'CH3CH2COOH': 'Propanoic Acid'};
 */
 
 let scene, camera, renderer, controls;
@@ -43,6 +45,16 @@ const dragOffset = new THREE.Vector3();
 const intersectionPoint = new THREE.Vector3();
 
 let moleculeInfoDiv, moleculeFormulaSpan, moleculeNameSpan;
+
+const FORMULA_TO_BUILDER = {
+	'C6H6': buildBenzeneMolecule,
+};
+
+const NAME_TO_FORMULA = {};
+for (const formula in KNOWN_COMPOUNDS) {
+	const name = KNOWN_COMPOUNDS[formula].toLowerCase();
+	NAME_TO_FORMULA[name] = formula;
+}
 
 function init() {
 	scene = new THREE.Scene();
@@ -498,7 +510,6 @@ function initUI() {
 		const translateX = destX - rect.left;
 		const translateY = destY - rect.top;
 
-		uiContainer.style.transformOrigin = 'top right';
 		uiContainer.style.setProperty('--current-transform', currentTransform);
 		uiContainer.style.setProperty('--end-tx', `${translateX}px`);
 		uiContainer.style.setProperty('--end-ty', `${translateY}px`);
@@ -513,6 +524,7 @@ function initUI() {
 			uiContainer.style.top = '15px';
 			uiContainer.style.right = '15px';
 			uiContainer.style.left = 'auto';
+			uiContainer.style.transformOrigin = '';
 
 			uiContainer.style.removeProperty('--current-transform');
 			uiContainer.style.removeProperty('--end-tx');
@@ -538,6 +550,112 @@ function initUI() {
 		uiContainer.classList.remove('hiding');
 		settingsIcon.classList.add('hidden');
 	});
+
+	const infoContainer = document.getElementById('info-ui-container');
+	const infoButton = document.getElementById('info-button');
+	const infoCloseButton = document.getElementById('info-close-button');
+	const infoHeader = infoContainer.querySelector('.header');
+	let infoLastKnownState = null;
+
+	const saveInfoState = () => {
+		infoLastKnownState = {
+			left: infoContainer.style.left,
+			top: infoContainer.style.top,
+			transform: infoContainer.style.transform,
+			transformOrigin: infoContainer.style.transformOrigin,
+		};
+	};
+
+	const hideInfoPanel = () => {
+		saveInfoState();
+		const rect = infoContainer.getBoundingClientRect();
+		const currentTransform = (infoLastKnownState && infoLastKnownState.transform) || 'scale(1)';
+
+		const destX = 15;
+		const destY = 15;
+
+		const translateX = destX - rect.left;
+		const translateY = destY - rect.top;
+
+		infoContainer.style.setProperty('--current-transform', currentTransform);
+		infoContainer.style.setProperty('--end-tx', `${translateX}px`);
+		infoContainer.style.setProperty('--end-ty', `${translateY}px`);
+
+		infoContainer.classList.add('hiding');
+		infoButton.classList.remove('hidden');
+
+		infoContainer.addEventListener('animationend', () => {
+			infoContainer.classList.add('hidden');
+			infoContainer.classList.remove('hiding');
+			infoContainer.style.top = '15px';
+			infoContainer.style.left = '15px';
+			infoContainer.style.right = 'auto';
+			infoContainer.style.transformOrigin = 'top left';
+			infoContainer.style.removeProperty('--current-transform');
+			infoContainer.style.removeProperty('--end-tx');
+			infoContainer.style.removeProperty('--end-ty');
+		}, { once: true });
+	};
+
+	const showInfoPanel = () => {
+		if (infoLastKnownState) {
+			infoContainer.style.left = infoLastKnownState.left;
+			infoContainer.style.top = infoLastKnownState.top;
+			infoContainer.style.transform = infoLastKnownState.transform;
+			infoContainer.style.transformOrigin = infoLastKnownState.transformOrigin;
+		} else {
+			infoContainer.style.top = '15px';
+			infoContainer.style.left = '15px';
+			infoContainer.style.right = 'auto';
+			infoContainer.style.transform = `scale(1)`;
+			infoContainer.style.transformOrigin = 'top left';
+		}
+		infoContainer.classList.remove('hidden');
+		infoContainer.classList.remove('hiding');
+		infoButton.classList.add('hidden');
+	};
+
+	infoButton.addEventListener('click', () => {
+		if (infoContainer.classList.contains('hidden')) {
+			showInfoPanel();
+		} else {
+			hideInfoPanel();
+		}
+	});
+
+	infoCloseButton.addEventListener('click', hideInfoPanel);
+
+	let isInfoDragging = false;
+	let infoOffsetX, infoOffsetY;
+	const onInfoMouseDown = (e) => {
+		if (e.target.closest('button')) return;
+		isInfoDragging = true;
+		const rect = infoContainer.getBoundingClientRect();
+		infoContainer.style.right = 'auto';
+		infoContainer.style.transformOrigin = 'top left';
+		infoContainer.style.left = `${rect.left}px`;
+		infoContainer.style.top = `${rect.top}px`;
+		infoOffsetX = e.clientX - rect.left;
+		infoOffsetY = e.clientY - rect.top;
+		document.addEventListener('mousemove', onInfoMouseMove);
+		document.addEventListener('mouseup', onInfoMouseUp);
+	};
+
+	const onInfoMouseMove = (e) => {
+		if (!isInfoDragging) return;
+		e.preventDefault();
+		const x = e.clientX - infoOffsetX;
+		const y = e.clientY - infoOffsetY;
+		infoContainer.style.left = `${x}px`;
+		infoContainer.style.top = `${y}px`;
+	};
+
+	const onInfoMouseUp = () => {
+		isInfoDragging = false;
+		document.removeEventListener('mousemove', onInfoMouseMove);
+		document.removeEventListener('mouseup', onInfoMouseUp);
+	};
+	infoHeader.addEventListener('mousedown', onInfoMouseDown);
 
 	document.getElementById('reset-button').addEventListener('click', resetSimulation);
 
@@ -578,7 +696,7 @@ function initUI() {
 		newScale = Math.max(0.4, Math.min(newScale, 1.5));
 		uiContainer.style.transform = `scale(${newScale})`;
 	};
-
+	
 	const stopResize = () => {
 		if (!isResizing) return;
 		isResizing = false;
@@ -1206,24 +1324,14 @@ function updateMoleculeInfo() {
 		return;
 	}
 
-	if (currentFormulaString) {
-		moleculeFormulaSpan.innerHTML = currentFormulaString.replace(/(\d+)/g, '<sub>$1</sub>');
-	} else {
-		const composition = atoms.reduce((acc, atom) => {
-			const symbol = atom.data.symbol;
-			acc[symbol] = (acc[symbol] || 0) + 1;
-			return acc;
-		}, {});
-		moleculeFormulaSpan.innerHTML = generateFormula(composition);
-	}
-	
-	const nameComposition = atoms.reduce((acc, atom) => {
+	const composition = atoms.reduce((acc, atom) => {
 		const symbol = atom.data.symbol;
 		acc[symbol] = (acc[symbol] || 0) + 1;
 		return acc;
 	}, {});
-
-	moleculeNameSpan.textContent = generateName(nameComposition);
+	
+	moleculeFormulaSpan.innerHTML = generateFormula(composition);
+	moleculeNameSpan.textContent = generateName(composition);
 	moleculeInfoDiv.classList.add('visible');
 }
 
@@ -1266,6 +1374,24 @@ function generateName(composition) {
 			.map(symbol => `${symbol}${comp[symbol] > 1 ? comp[symbol] : ''}`)
 			.join('');
 	};
+
+	const generateCommonFormula = (comp) => {
+		const symbols = Object.keys(comp);
+		if (symbols.length === 0) return '';
+		if (symbols.includes('C')) {
+			return getHillFormula(comp);
+		}
+		symbols.sort((a, b) => {
+			if ((a === 'N' && b === 'H') || (a === 'P' && b === 'H')) return -1;
+			if ((b === 'N' && a === 'H') || (b === 'P' && a === 'H')) return 1;
+
+			const elA = getElement(a);
+			const elB = getElement(b);
+			if (!elA || !elB) return a.localeCompare(b);
+			return (elA.electronegativity || 99) - (elB.electronegativity || 99);
+		});
+		return symbols.map(symbol => `${symbol}${comp[symbol] > 1 ? comp[symbol] : ''}`).join('');
+	};
 	
 	const symbols = Object.keys(composition);
 	if (symbols.length === 0) return "";
@@ -1273,11 +1399,30 @@ function generateName(composition) {
 	const elements = symbols.map(getElement).filter(Boolean);
 	if (elements.length !== symbols.length) return "Unknown elements in formula";
 	
-	const formula = getHillFormula(composition);
-	if (KNOWN_COMPOUNDS[formula]) return KNOWN_COMPOUNDS[formula];
-	
-	const isOrganic = () => symbols.includes('C');
+	const formulasToCheck = new Set();
+	if (currentFormulaString) {
+		formulasToCheck.add(currentFormulaString);
+	}
+	formulasToCheck.add(getHillFormula(composition));
+	formulasToCheck.add(generateCommonFormula(composition));
+
 	const isAcid = () => composition['H'] > 0 && elements.length > 1 && !elements.some(el => el.category.includes('metal') && el.symbol !== 'H');
+
+	if (isAcid()) {
+		const hCount = composition['H'];
+		const anionComp = { ...composition };
+		delete anionComp['H'];
+		const anionFormula = generateCommonFormula(anionComp);
+		formulasToCheck.add(`H${hCount > 1 ? hCount : ''}${anionFormula}`);
+	}
+
+	for (const formula of formulasToCheck) {
+		if (KNOWN_COMPOUNDS[formula]) {
+			return KNOWN_COMPOUNDS[formula];
+		}
+	}
+
+	const isOrganic = () => symbols.includes('C');
 	
 	const classifyElements = () => {
 		const metals = elements.filter(el => el.category.includes('metal') || (el.category.includes('metalloid') && el.electronegativity < 1.9));
@@ -1319,7 +1464,7 @@ function generateName(composition) {
 			tempAnionComp['H'] -= 4;
 			if (tempAnionComp['N'] === 0) delete tempAnionComp['N'];
 			if (tempAnionComp['H'] === 0) delete tempAnionComp['H'];
-			const anionFormula = getHillFormula(tempAnionComp);
+			const anionFormula = generateCommonFormula(tempAnionComp);
 			if(Object.keys(tempAnionComp).length === 0 || POLYATOMIC_IONS[anionFormula] || Object.keys(tempAnionComp).length === 1) {
 				cation = { name: 'ammonium', symbol: 'NH4', count: 1, charge: 1 };
 				anionComp = tempAnionComp;
@@ -1333,7 +1478,7 @@ function generateName(composition) {
 			delete anionComp[cation.symbol];
 		}
 
-		const anionFormula = getHillFormula(anionComp);
+		const anionFormula = generateCommonFormula(anionComp);
 		const anionCount = (Object.keys(anionComp).length === 1) ? anionComp[Object.keys(anionComp)[0]] : 1;
 		let anionName, totalAnionCharge;
 
@@ -1364,7 +1509,7 @@ function generateName(composition) {
 	const nameAcid = () => {
 		const anionComp = { ...composition };
 		delete anionComp['H'];
-		const anionFormula = getHillFormula(anionComp);
+		const anionFormula = generateCommonFormula(anionComp);
 
 		if (POLYATOMIC_IONS[anionFormula]) {
 			let name = POLYATOMIC_IONS[anionFormula].name;
@@ -1425,109 +1570,172 @@ function onFormulaInputChange(event) {
 
 	clearTimeout(buildTimeout);
 	buildTimeout = setTimeout(() => {
-		currentFormulaString = formula.trim();
-		if (currentFormulaString === '') {
+		let inputString = formula.trim();
+		if (inputString === '') {
 			resetSimulation();
 			return;
 		}
+		currentFormulaString = inputString;
 
-		const structure = parseFormula(currentFormulaString);
+		const structure = parseFormula(inputString);
 		if (structure) {
 			buildMoleculeFromStructure(structure);
-		} else {
-			formulaInput.classList.add('error');
+			return;
 		}
+
+		let formulaString = null;
+		const lowerCaseInput = inputString.toLowerCase();
+		
+		if (NAME_TO_FORMULA[lowerCaseInput]) {
+			formulaString = NAME_TO_FORMULA[lowerCaseInput];
+		} else {
+			const comp = parseMolecularFormula(inputString);
+			if (comp) {
+				formulaString = generatePlainTextFormula(comp);
+			}
+		}
+
+		if (formulaString) {
+			if (FORMULA_TO_BUILDER[formulaString]) {
+				resetSimulation(true);
+				FORMULA_TO_BUILDER[formulaString]();
+			} else {
+				const composition = parseMolecularFormula(formulaString);
+				resetSimulation(true);
+				buildGenericGroup(composition);
+				saturateWithMultipleBonds();
+				ensureConnectivity();
+			}
+
+			atoms.forEach(atom => updateAtomGeometry(atom));
+			updatePeriodicTableState();
+			updateMoleculeInfo();
+			validateAndColorAtoms();
+			updateBondMeshes();
+			return;
+		}
+		
+		formulaInput.classList.add('error');
+
 	}, 500);
 }
 
+function parseMolecularFormula(formula) {
+	if (/[()=\-#\[\]]/.test(formula)) {
+		return null;
+	}
+
+	const regex = /([A-Z][a-z]?)(\d*)/g;
+	let match;
+	const composition = {};
+	let totalParsedLength = 0;
+
+	while ((match = regex.exec(formula)) !== null) {
+		const symbol = match[1];
+		const count = match[2] ? parseInt(match[2], 10) : 1;
+		
+		const elData = elementsData.find(e => e.symbol === symbol);
+		if (!elData) return null;
+
+		composition[symbol] = (composition[symbol] || 0) + count;
+		totalParsedLength += match[0].length;
+	}
+	
+	if (totalParsedLength !== formula.length || Object.keys(composition).length === 0) {
+		return null;
+	}
+
+	return composition;
+}
+
 function parseFormula(formula) {
-    formula = formula.replace(/\s+/g, '');
-    if (!formula) return null;
+	formula = formula.replace(/\s+/g, '');
+	if (!formula) return null;
 
-    const atoms = [];
-    const bonds = [];
-    const branchStack = [];
-    const ringClosures = {};
-    let lastAtomId = null;
-    let bondOrder = 1;
-    let atomIdCounter = 0;
-    let i = 0;
+	const atoms = [];
+	const bonds = [];
+	const branchStack = [];
+	const ringClosures = {};
+	let lastAtomId = null;
+	let bondOrder = 1;
+	let atomIdCounter = 0;
+	let i = 0;
 
-    while (i < formula.length) {
-        let char = formula[i];
-        
-        if (char.match(/[A-Z]/)) {
-            let symbol = char;
-            i++;
-            if (i < formula.length && formula[i].match(/[a-z]/)) {
-                symbol += formula[i];
-                i++;
-            }
-            
-            const elData = elementsData.find(e => e.symbol === symbol);
-            if (!elData) return null;
+	while (i < formula.length) {
+		let char = formula[i];
+		
+		if (char.match(/[A-Z]/)) {
+			let symbol = char;
+			i++;
+			if (i < formula.length && formula[i].match(/[a-z]/)) {
+				symbol += formula[i];
+				i++;
+			}
+			
+			const elData = elementsData.find(e => e.symbol === symbol);
+			if (!elData) return null;
 
-            const newAtom = { id: atomIdCounter++, symbol: symbol, explicitHydrogens: -1 };
-            atoms.push(newAtom);
-            if (lastAtomId !== null) {
-                bonds.push({ from: lastAtomId, to: newAtom.id, order: bondOrder });
-            }
-            lastAtomId = newAtom.id;
-            bondOrder = 1;
+			const newAtom = { id: atomIdCounter++, symbol: symbol, explicitHydrogens: -1 };
+			atoms.push(newAtom);
+			if (lastAtomId !== null) {
+				bonds.push({ from: lastAtomId, to: newAtom.id, order: bondOrder });
+			}
+			lastAtomId = newAtom.id;
+			bondOrder = 1;
 
-        } else if (char === '[') {
-            i++;
-            const endBracket = formula.indexOf(']', i);
-            if(endBracket === -1) return null;
-            const bracketContent = formula.substring(i, endBracket);
-            i = endBracket + 1;
-            
-            const match = bracketContent.match(/([A-Z][a-z]?)H?(\d*)/);
-            if (!match) return null;
-            
-            const symbol = match[1];
-            const explicitHydrogens = match[2] ? parseInt(match[2], 10) : (bracketContent.includes('H') ? 1 : 0);
-            
-            const elData = elementsData.find(e => e.symbol === symbol);
-            if (!elData) return null;
+		} else if (char === '[') {
+			i++;
+			const endBracket = formula.indexOf(']', i);
+			if(endBracket === -1) return null;
+			const bracketContent = formula.substring(i, endBracket);
+			i = endBracket + 1;
+			
+			const match = bracketContent.match(/([A-Z][a-z]?)H?(\d*)/);
+			if (!match) return null;
+			
+			const symbol = match[1];
+			const explicitHydrogens = match[2] ? parseInt(match[2], 10) : (bracketContent.includes('H') ? 1 : 0);
+			
+			const elData = elementsData.find(e => e.symbol === symbol);
+			if (!elData) return null;
 
-            const newAtom = { id: atomIdCounter++, symbol: symbol, explicitHydrogens: explicitHydrogens };
-            atoms.push(newAtom);
-            if (lastAtomId !== null) {
-                bonds.push({ from: lastAtomId, to: newAtom.id, order: bondOrder });
-            }
-            lastAtomId = newAtom.id;
-            bondOrder = 1;
+			const newAtom = { id: atomIdCounter++, symbol: symbol, explicitHydrogens: explicitHydrogens };
+			atoms.push(newAtom);
+			if (lastAtomId !== null) {
+				bonds.push({ from: lastAtomId, to: newAtom.id, order: bondOrder });
+			}
+			lastAtomId = newAtom.id;
+			bondOrder = 1;
 
-        } else if (char === '(') {
-            branchStack.push(lastAtomId);
-            i++;
-        } else if (char === ')') {
-            lastAtomId = branchStack.pop();
-            i++;
-        } else if (char.match(/[=\-#]/)) {
-            if (char === '=') bondOrder = 2;
-            else if (char === '#') bondOrder = 3;
-            else bondOrder = 1;
-            i++;
-        } else if (char.match(/\d/)) {
-            const ringId = char;
-            i++;
-            if (ringClosures[ringId]) {
-                bonds.push({ from: ringClosures[ringId], to: lastAtomId, order: bondOrder });
-                delete ringClosures[ringId];
-            } else {
-                ringClosures[ringId] = lastAtomId;
-            }
-            bondOrder = 1;
-        } else {
-            return null;
-        }
-    }
+		} else if (char === '(') {
+			branchStack.push(lastAtomId);
+			i++;
+		} else if (char === ')') {
+			lastAtomId = branchStack.pop();
+			i++;
+		} else if (char.match(/[=\-#]/)) {
+			if (char === '=') bondOrder = 2;
+			else if (char === '#') bondOrder = 3;
+			else bondOrder = 1;
+			i++;
+		} else if (char.match(/\d/)) {
+			const ringId = char;
+			i++;
+			if (ringClosures[ringId]) {
+				bonds.push({ from: ringClosures[ringId], to: lastAtomId, order: bondOrder });
+				delete ringClosures[ringId];
+			} else {
+				ringClosures[ringId] = lastAtomId;
+			}
+			bondOrder = 1;
+		} else {
+			return null;
+		}
+	}
 
-    if (Object.keys(ringClosures).length > 0 || branchStack.length > 0) return null;
+	if (Object.keys(ringClosures).length > 0 || branchStack.length > 0) return null;
 
-    const finalAtoms = [...atoms];
+	const finalAtoms = [...atoms];
 	const originalAtomCount = atoms.length;
 	const hData = elementsData.find(e => e.symbol === 'H');
 

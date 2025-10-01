@@ -17,7 +17,43 @@
 	<button id="settings-icon" class="hidden">
 		<img src="gear-icon.svg" alt="Settings" />
 	</button>
+	
+	<button id="info-button">
+		<img src="info-icon.svg" alt="Info" />
+	</button>
 
+	<div id="info-ui-container" class="hidden">
+		<div class="header">
+			<span>Controls & Shortcuts</span>
+			<button id="info-close-button">
+				<img src="info-icon.svg" alt="Close" />
+			</button>
+		</div>
+		<div id="info-content-area">
+			<h4>Mouse Controls</h4>
+			<ul>
+				<li><b>Rotate View:</b> Left-click + Drag</li>
+				<li><b>Pan View:</b> Right-click + Drag</li>
+				<li><b>Zoom View:</b> Scroll wheel</li>
+				<li><b>Move Atom:</b> Ctrl + Left-click + Drag</li>
+				<li><b>Delete Atom:</b> Ctrl + Right-click</li>
+				<li><b>Create/Increment Bond:</b> Shift + Click atoms</li>
+			</ul>
+			<h4>Touchscreen Controls</h4>
+			<ul>
+				<li><b>Create/Increment Bond:</b> Tap atoms</li>
+				<li><b>Delete Atom:</b> Double-tap atom</li>
+				<li><b>Move Atom:</b> Long-press + Drag</li>
+			</ul>
+			<h4>Keyboard Shortcuts</h4>
+			<ul>
+				<li><b>Cancel Action:</b> Esc</li>
+				<li><b>Cycle Helpers:</b> &larr; / &rarr; (placement mode)</li>
+				<li><b>Confirm Placement:</b> Enter (placement mode)</li>
+			</ul>
+		</div>
+	</div>
+	
 	<div id="ui-container">
 		<div class="header">
 			<span>Periodic table</span>
@@ -27,12 +63,12 @@
 		</div>
 		<div id="periodic-table"></div>
 		<div class="controls-info">
-			<input type="text" id="formula-input" placeholder="SMILES-like, e.g., O, C, CC, C=C" autocomplete="off" spellcheck="false">
+			<input type="text" id="formula-input" placeholder="Water, H2O, CH4, CC, C=C" autocomplete="off" spellcheck="false">
 			<button id="reset-button">Reset</button>
 		</div>
 		<div id="resize-handle"></div>
 	</div>
-	
+
 	<script>	
 		document.addEventListener('wheel', function(e) {if (e.ctrlKey) e.preventDefault();}, { passive: false });
 		document.addEventListener('keydown', function(e) {if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '=' || e.key === '0')) {e.preventDefault();}});
