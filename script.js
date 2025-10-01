@@ -657,6 +657,30 @@ function initUI() {
 	};
 	infoHeader.addEventListener('mousedown', onInfoMouseDown);
 
+	const fullscreenButton = document.getElementById('fullscreen-button');
+	fullscreenButton.addEventListener('click', () => {
+		if (!document.fullscreenElement) {
+			document.documentElement.requestFullscreen().catch(err => {
+				console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+			});
+		} else {
+			if (document.exitFullscreen) {
+				document.exitFullscreen();
+			}
+		}
+	});
+
+	document.addEventListener('fullscreenchange', () => {
+		const fullscreenIcon = document.getElementById('fullscreen-icon-img');
+		if (document.fullscreenElement) {
+			fullscreenIcon.src = 'fullscreen-exit-icon.svg';
+			fullscreenIcon.alt = 'Exit Fullscreen';
+		} else {
+			fullscreenIcon.src = 'fullscreen-icon.svg';
+			fullscreenIcon.alt = 'Fullscreen';
+		}
+	});
+
 	document.getElementById('reset-button').addEventListener('click', resetSimulation);
 
 	formulaInput = document.getElementById('formula-input');

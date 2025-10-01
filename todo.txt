@@ -4,7 +4,6 @@ Créer un panneau d'information dédié pour l'atome sélectionné affichant ses
 Permettre la sauvegarde et le chargement de molécules.
 Générer un lien pour partager la molécule actuelle.
 Développer différents styles de rendu visuel (éclaté, fil de fer, bâtonnets seuls).
- Visualiser les doublets non liants sur les atomes.
 Afficher les charges formelles directement sur les atomes.
 Intégrer un outil pour mesurer les longueurs et les angles de liaison.
 Calculer et afficher la masse molaire de la molécule.
