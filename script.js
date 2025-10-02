@@ -681,6 +681,7 @@ function incrementBondOrder(atom1, atom2) {
 			updatePeriodicTableState();
 			updateMoleculeInfo();
 			validateAndColorAtoms();
+			updateBondMeshes();
 		}
 	}
 }
@@ -958,6 +959,8 @@ function deleteAtom(atomToDelete) {
 	if (atoms.length === 0) {
 		resetSimulation();
 	} else {
+		saturateWithMultipleBonds();
+		ensureConnectivity();
 		updatePeriodicTableState();
 		updateMoleculeInfo();
 		validateAndColorAtoms();
@@ -987,7 +990,7 @@ function getFormalCharge(atom) {
 	const electronsInBonds = bondOrderSum * 2;
 	let lonePairElectrons;
 
-	if (atom.data.row >= 2 && atom.data.electronegativity > 2.8) {
+	if (atom.data.row === 2 && atom.data.electronegativity > 2.8) {
 		lonePairElectrons = Math.max(0, 8 - electronsInBonds);
 	} else {
 		lonePairElectrons = getLonePairs(atom) * 2;
@@ -1956,6 +1959,7 @@ function onFormulaInputChange(event) {
 		}
 		
 		formulaInput.classList.add('error');
+		currentFormulaString = null;
 
 	}, 500);
 }

@@ -346,7 +346,7 @@ canvas {
 
 #resize-handle:hover {
 	bottom: 4px;
-	right: 4px;
+	left: 4px;
 	opacity: 1;
 	background-image:
 		linear-gradient(135deg, transparent 45%, #aaa 45%, #aaa 50%, transparent 45%),
