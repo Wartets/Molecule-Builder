@@ -195,16 +195,28 @@ function initUI() {
 			transformOrigin: uiContainer.style.transformOrigin,
 		};
 	};
+	
+	const infoContainer = document.getElementById('info-ui-container');
+	const infoButton = document.getElementById('info-button');
+	const infoCloseButton = document.getElementById('info-close-button');
+	const infoHeader = infoContainer.querySelector('.header');
+	let infoLastKnownState = null;
+	
+	const toolsContainer = document.getElementById('tools-ui-container');
+	const toolsIcon = document.getElementById('tools-icon');
+	const toolsCloseButton = document.getElementById('tools-close-button');
+	const toolsHeader = toolsContainer.querySelector('.header');
+	let toolsLastKnownState = null;
 
-	toggleButton.addEventListener('click', () => {
+	const hideUiPanel = () => {
 		saveCurrentState();
 		const rect = uiContainer.getBoundingClientRect();
-		const currentTransform = lastKnownState.transform || 'scale(1)';
+		const currentTransform = (lastKnownState && lastKnownState.transform) || 'scale(1)';
 
 		const destX = window.innerWidth - 35;
 		const destY = 35;
 
-		const translateX = destX - rect.right;
+		const translateX = destX - (rect.left + rect.width);
 		const translateY = destY - rect.top;
 
 		uiContainer.style.setProperty('--current-transform', currentTransform);
@@ -227,54 +239,9 @@ function initUI() {
 			uiContainer.style.removeProperty('--end-tx');
 			uiContainer.style.removeProperty('--end-ty');
 		}, { once: true });
-	});
+	};
 
-	settingsIcon.addEventListener('click', () => {
-		uiContainer.classList.remove('hidden');
-		uiContainer.classList.remove('hiding');
-		settingsIcon.classList.add('hidden');
-
-		const lastTransform = lastKnownState ? lastKnownState.transform : `scale(${currentScale})`;
-
-		if (lastKnownState) {
-			uiContainer.style.left = lastKnownState.left;
-			uiContainer.style.top = lastKnownState.top;
-			uiContainer.style.right = lastKnownState.right;
-			uiContainer.style.transform = lastKnownState.transform;
-			uiContainer.style.transformOrigin = lastKnownState.transformOrigin;
-		} else {
-			uiContainer.style.top = '15px';
-			uiContainer.style.right = '15px';
-			uiContainer.style.left = 'auto';
-			uiContainer.style.transform = `scale(${currentScale})`;
-			uiContainer.style.transformOrigin = 'top right';
-		}
-
-		const panelRect = uiContainer.getBoundingClientRect();
-		const iconRect = settingsIcon.getBoundingClientRect();
-
-		const startX = iconRect.left - panelRect.left;
-		const startY = iconRect.top - panelRect.top;
-
-		uiContainer.style.setProperty('--current-transform', lastTransform);
-		uiContainer.style.setProperty('--start-tx', `${startX}px`);
-		uiContainer.style.setProperty('--start-ty', `${startY}px`);
-		
-		uiContainer.classList.add('showing');
-
-		uiContainer.addEventListener('animationend', () => {
-			uiContainer.classList.remove('showing');
-			uiContainer.style.removeProperty('--current-transform');
-			uiContainer.style.removeProperty('--start-tx');
-			uiContainer.style.removeProperty('--start-ty');
-		}, { once: true });
-	});
-
-	const infoContainer = document.getElementById('info-ui-container');
-	const infoButton = document.getElementById('info-button');
-	const infoCloseButton = document.getElementById('info-close-button');
-	const infoHeader = infoContainer.querySelector('.header');
-	let infoLastKnownState = null;
+	toggleButton.addEventListener('click', hideUiPanel);
 
 	const saveInfoState = () => {
 		infoLastKnownState = {
@@ -317,23 +284,36 @@ function initUI() {
 	};
 
 	const showInfoPanel = () => {
+		if (isMobile()) {
+			if (!uiContainer.classList.contains('hidden')) hideUiPanel();
+			if (!toolsContainer.classList.contains('hidden')) hideToolsPanel();
+		}
+
 		infoContainer.classList.remove('hidden');
 		infoContainer.classList.remove('hiding');
 		infoButton.classList.add('hidden');
 	
-		const lastTransform = infoLastKnownState ? infoLastKnownState.transform : 'scale(1)';
+		const useLastState = infoLastKnownState && !isMobile();
+		const lastTransform = useLastState ? infoLastKnownState.transform : 'scale(1)';
 	
-		if (infoLastKnownState) {
+		if (useLastState) {
 			infoContainer.style.left = infoLastKnownState.left;
 			infoContainer.style.top = infoLastKnownState.top;
 			infoContainer.style.transform = infoLastKnownState.transform;
 			infoContainer.style.transformOrigin = infoLastKnownState.transformOrigin;
 		} else {
-			infoContainer.style.top = '15px';
-			infoContainer.style.left = '15px';
-			infoContainer.style.right = 'auto';
-			infoContainer.style.transform = `scale(1)`;
-			infoContainer.style.transformOrigin = 'top left';
+			infoContainer.style.left = '';
+			infoContainer.style.top = '';
+			infoContainer.style.right = '';
+			infoContainer.style.transform = '';
+			infoContainer.style.transformOrigin = '';
+			if(!isMobile()) {
+				infoContainer.style.top = '15px';
+				infoContainer.style.left = '15px';
+				infoContainer.style.right = 'auto';
+				infoContainer.style.transform = 'scale(1)';
+				infoContainer.style.transformOrigin = 'top left';
+			}
 		}
 	
 		const panelRect = infoContainer.getBoundingClientRect();
@@ -353,8 +333,167 @@ function initUI() {
 			infoContainer.style.removeProperty('--current-transform');
 			infoContainer.style.removeProperty('--start-tx');
 			infoContainer.style.removeProperty('--start-ty');
+			if (isMobile()) {
+				infoContainer.style.transform = '';
+			}
 		}, { once: true });
 	};
+
+	const saveToolsState = () => {
+		toolsLastKnownState = {
+			left: toolsContainer.style.left,
+			top: toolsContainer.style.top,
+			transform: toolsContainer.style.transform,
+			transformOrigin: toolsContainer.style.transformOrigin,
+		};
+	};
+
+	const hideToolsPanel = () => {
+		saveToolsState();
+		const rect = toolsContainer.getBoundingClientRect();
+		const currentTransform = (toolsLastKnownState && toolsLastKnownState.transform) || 'scale(1)';
+	
+		const destX = 35;
+		const destY = window.innerHeight - 35;
+	
+		const translateX = destX - rect.left;
+		const translateY = destY - (rect.top + rect.height);
+	
+		toolsContainer.style.setProperty('--current-transform', currentTransform);
+		toolsContainer.style.setProperty('--end-tx', `${translateX}px`);
+		toolsContainer.style.setProperty('--end-ty', `${translateY}px`);
+	
+		toolsContainer.classList.add('hiding');
+		toolsIcon.classList.remove('hidden');
+	
+		toolsContainer.addEventListener('animationend', () => {
+			toolsContainer.classList.add('hidden');
+			toolsContainer.classList.remove('hiding');
+			toolsContainer.style.bottom = '15px';
+			toolsContainer.style.left = '15px';
+			toolsContainer.style.top = 'auto';
+			toolsContainer.style.transformOrigin = 'bottom left';
+			toolsContainer.style.removeProperty('--current-transform');
+			toolsContainer.style.removeProperty('--end-tx');
+			toolsContainer.style.removeProperty('--end-ty');
+		}, { once: true });
+	};
+	
+	const showToolsPanel = () => {
+		if (isMobile()) {
+			if (!uiContainer.classList.contains('hidden')) hideUiPanel();
+			if (!infoContainer.classList.contains('hidden')) hideInfoPanel();
+		}
+
+		toolsContainer.classList.remove('hidden');
+		toolsContainer.classList.remove('hiding');
+		toolsIcon.classList.add('hidden');
+
+		const useLastState = toolsLastKnownState && !isMobile();
+		const lastTransform = useLastState ? toolsLastKnownState.transform : 'scale(1)';
+
+		if (useLastState) {
+			toolsContainer.style.left = toolsLastKnownState.left;
+			toolsContainer.style.top = toolsLastKnownState.top;
+			toolsContainer.style.transform = toolsLastKnownState.transform;
+			toolsContainer.style.transformOrigin = toolsLastKnownState.transformOrigin;
+		} else {
+			toolsContainer.style.left = '';
+			toolsContainer.style.top = '';
+			toolsContainer.style.right = '';
+			toolsContainer.style.bottom = '';
+			toolsContainer.style.transform = '';
+			toolsContainer.style.transformOrigin = '';
+			if(!isMobile()){
+				toolsContainer.style.bottom = '15px';
+				toolsContainer.style.left = '15px';
+				toolsContainer.style.top = 'auto';
+				toolsContainer.style.transform = 'scale(1)';
+				toolsContainer.style.transformOrigin = 'bottom left';
+			}
+		}
+	
+		const panelRect = toolsContainer.getBoundingClientRect();
+		const iconRect = toolsIcon.getBoundingClientRect();
+
+		const startX = iconRect.left + (iconRect.width / 2) - (panelRect.left + (panelRect.width/2)*0);
+		const startY = iconRect.top + (iconRect.height / 2) - (panelRect.top + (panelRect.height/2)*0);
+
+		toolsContainer.style.setProperty('--current-transform', lastTransform);
+		toolsContainer.style.setProperty('--start-tx', `${startX}px`);
+		toolsContainer.style.setProperty('--start-ty', `${startY}px`);
+		
+		toolsContainer.classList.add('showing');
+
+		toolsContainer.addEventListener('animationend', () => {
+			toolsContainer.classList.remove('showing');
+			toolsContainer.style.removeProperty('--current-transform');
+			toolsContainer.style.removeProperty('--start-tx');
+			toolsContainer.style.removeProperty('--start-ty');
+			if(isMobile()){
+				toolsContainer.style.transform = '';
+			}
+		}, { once: true });
+	};
+
+	settingsIcon.addEventListener('click', () => {
+		if (isMobile()) {
+			if (!infoContainer.classList.contains('hidden')) hideInfoPanel();
+			if (!toolsContainer.classList.contains('hidden')) hideToolsPanel();
+		}
+		
+		uiContainer.classList.remove('hidden');
+		uiContainer.classList.remove('hiding');
+		settingsIcon.classList.add('hidden');
+
+		const useLastState = lastKnownState && !isMobile();
+		const lastTransform = useLastState ? lastKnownState.transform : `scale(${isMobile() ? 1 : currentScale})`;
+
+		if (useLastState) {
+			uiContainer.style.left = lastKnownState.left;
+			uiContainer.style.top = lastKnownState.top;
+			uiContainer.style.right = lastKnownState.right;
+			uiContainer.style.transform = lastKnownState.transform;
+			uiContainer.style.transformOrigin = lastKnownState.transformOrigin;
+		} else {
+			uiContainer.style.left = '';
+			uiContainer.style.top = '';
+			uiContainer.style.right = '';
+			uiContainer.style.transform = '';
+			uiContainer.style.transformOrigin = '';
+			if (isMobile()) {
+				currentScale = 1;
+			} else {
+				uiContainer.style.top = '15px';
+				uiContainer.style.right = '15px';
+				uiContainer.style.left = 'auto';
+				uiContainer.style.transform = `scale(${currentScale})`;
+				uiContainer.style.transformOrigin = 'top right';
+			}
+		}
+
+		const panelRect = uiContainer.getBoundingClientRect();
+		const iconRect = settingsIcon.getBoundingClientRect();
+
+		const startX = iconRect.left - panelRect.left;
+		const startY = iconRect.top - panelRect.top;
+
+		uiContainer.style.setProperty('--current-transform', lastTransform);
+		uiContainer.style.setProperty('--start-tx', `${startX}px`);
+		uiContainer.style.setProperty('--start-ty', `${startY}px`);
+		
+		uiContainer.classList.add('showing');
+
+		uiContainer.addEventListener('animationend', () => {
+			uiContainer.classList.remove('showing');
+			uiContainer.style.removeProperty('--current-transform');
+			uiContainer.style.removeProperty('--start-tx');
+			uiContainer.style.removeProperty('--start-ty');
+			if (isMobile()) {
+				uiContainer.style.transform = '';
+			}
+		}, { once: true });
+	});
 
 	infoButton.addEventListener('click', () => {
 		if (infoContainer.classList.contains('hidden')) {
@@ -371,7 +510,7 @@ function initUI() {
 	let infoLastClickTime = 0;
 
 	const startInfoDrag = (e, clientX, clientY) => {
-		if (e.target.closest('button')) return;
+		if (isMobile() || e.target.closest('button')) return;
 
 		const now = Date.now();
 		if (now - infoLastClickTime < 300) {
@@ -536,93 +675,7 @@ function initUI() {
 
 	infoHeader.addEventListener('mousedown', onInfoMouseDown);
 	infoHeader.addEventListener('touchstart', onInfoTouchStart, { passive: false });
-
-	const toolsContainer = document.getElementById('tools-ui-container');
-	const toolsIcon = document.getElementById('tools-icon');
-	const toolsCloseButton = document.getElementById('tools-close-button');
-	const toolsHeader = toolsContainer.querySelector('.header');
-	let toolsLastKnownState = null;
-
-	const saveToolsState = () => {
-		toolsLastKnownState = {
-			left: toolsContainer.style.left,
-			top: toolsContainer.style.top,
-			transform: toolsContainer.style.transform,
-			transformOrigin: toolsContainer.style.transformOrigin,
-		};
-	};
-
-	const hideToolsPanel = () => {
-		saveToolsState();
-		const rect = toolsContainer.getBoundingClientRect();
-		const currentTransform = (toolsLastKnownState && toolsLastKnownState.transform) || 'scale(1)';
 	
-		const destX = 35;
-		const destY = window.innerHeight - 35;
-	
-		const translateX = destX - rect.left;
-		const translateY = destY - rect.top;
-	
-		toolsContainer.style.setProperty('--current-transform', currentTransform);
-		toolsContainer.style.setProperty('--end-tx', `${translateX}px`);
-		toolsContainer.style.setProperty('--end-ty', `${translateY}px`);
-	
-		toolsContainer.classList.add('hiding');
-		toolsIcon.classList.remove('hidden');
-	
-		toolsContainer.addEventListener('animationend', () => {
-			toolsContainer.classList.add('hidden');
-			toolsContainer.classList.remove('hiding');
-			toolsContainer.style.bottom = '15px';
-			toolsContainer.style.left = '15px';
-			toolsContainer.style.top = 'auto';
-			toolsContainer.style.transformOrigin = 'bottom left';
-			toolsContainer.style.removeProperty('--current-transform');
-			toolsContainer.style.removeProperty('--end-tx');
-			toolsContainer.style.removeProperty('--end-ty');
-		}, { once: true });
-	};
-	
-	const showToolsPanel = () => {
-		toolsContainer.classList.remove('hidden');
-		toolsContainer.classList.remove('hiding');
-		toolsIcon.classList.add('hidden');
-
-		const lastTransform = toolsLastKnownState ? toolsLastKnownState.transform : 'scale(1)';
-
-		if (toolsLastKnownState) {
-			toolsContainer.style.left = toolsLastKnownState.left;
-			toolsContainer.style.top = toolsLastKnownState.top;
-			toolsContainer.style.transform = toolsLastKnownState.transform;
-			toolsContainer.style.transformOrigin = toolsLastKnownState.transformOrigin;
-		} else {
-			toolsContainer.style.bottom = '15px';
-			toolsContainer.style.left = '15px';
-			toolsContainer.style.top = 'auto';
-			toolsContainer.style.transform = `scale(1)`;
-			toolsContainer.style.transformOrigin = 'bottom left';
-		}
-	
-		const panelRect = toolsContainer.getBoundingClientRect();
-		const iconRect = toolsIcon.getBoundingClientRect();
-
-		const startX = iconRect.left + (iconRect.width / 2) - (panelRect.left + (panelRect.width/2)*0);
-		const startY = iconRect.top + (iconRect.height / 2) - (panelRect.top + (panelRect.height/2)*0);
-
-		toolsContainer.style.setProperty('--current-transform', lastTransform);
-		toolsContainer.style.setProperty('--start-tx', `${startX}px`);
-		toolsContainer.style.setProperty('--start-ty', `${startY}px`);
-		
-		toolsContainer.classList.add('showing');
-
-		toolsContainer.addEventListener('animationend', () => {
-			toolsContainer.classList.remove('showing');
-			toolsContainer.style.removeProperty('--current-transform');
-			toolsContainer.style.removeProperty('--start-tx');
-			toolsContainer.style.removeProperty('--start-ty');
-		}, { once: true });
-	};
-
 	toolsIcon.addEventListener('click', () => {
 		if (toolsContainer.classList.contains('hidden')) {
 			showToolsPanel();
@@ -637,7 +690,7 @@ function initUI() {
 	let toolsLastClickTime = 0;
 
 	const startToolsDrag = (e, clientX, clientY) => {
-		if (e.target.closest('button')) return;
+		if (isMobile() || e.target.closest('button')) return;
 
 		const now = Date.now();
 		if (now - toolsLastClickTime < 300) {
@@ -805,7 +858,8 @@ function initUI() {
 	let highestZIndex = 12;
 	const allPanels = [uiContainer, infoContainer, toolsContainer];
 	allPanels.forEach(panel => {
-		panel.addEventListener('mousedown', () => {
+		const bringToFront = () => {
+			if (isMobile()) return;
 			highestZIndex++;
 			panel.style.zIndex = highestZIndex;
 
@@ -818,7 +872,9 @@ function initUI() {
 					p.classList.remove('panel-out-of-focus');
 				}
 			});
-		});
+		};
+		panel.addEventListener('mousedown', bringToFront);
+		panel.addEventListener('touchstart', bringToFront, {passive: false});
 	});
 	
 	const vdwToggle = document.getElementById('vdw-toggle');
@@ -942,6 +998,7 @@ function initUI() {
 	uiContainer.style.transform = `scale(${currentScale})`;
 
 	const startResize = (e) => {
+		if (isMobile()) return;
 		e.preventDefault();
 		e.stopPropagation();
 		isResizing = true;
@@ -988,7 +1045,7 @@ function initUI() {
 	let lastClickTime = 0;
 
 	const startDrag = (e, clientX, clientY) => {
-		if (e.target.closest('button') || e.target.id === 'resize-handle' || e.target.id === 'formula-input') return;
+		if (isMobile() || e.target.closest('button') || e.target.id === 'resize-handle' || e.target.id === 'formula-input') return;
 
 		const now = Date.now();
 		if (now - lastClickTime < 300) {
@@ -1033,7 +1090,7 @@ function initUI() {
 			document.addEventListener('touchend', onMouseUp);
 		}
 	};
-
+	
 	const onMouseMove = (e) => {
 		if (!isDragging) return;
 		e.preventDefault();
@@ -3095,5 +3152,7 @@ function animate() {
 	controls.update();
 	renderer.render(scene, camera);
 }
+
+const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
 init();

@@ -38,3 +38,8 @@
 39. Predict and display simplified NMR or IR spectra.
 40. Augmented Reality (AR) viewing mode.
 41. Generate a systematic IUPAC name for the current molecule.
+
+Do not change the section IDs and be careful to use the correct names for constants and functions.
+Never put comments in the code.
+Provide only the full updated versions of any functions that need to be modified. Give me the complete version of each modified function. If only small lines of code need to be added outside those functions, indicate exactly where they should be inserted.
+Give me each change separately, don't put them in the same code block.
