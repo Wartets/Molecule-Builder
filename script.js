@@ -22,6 +22,8 @@ let atomForBonding = null;
 let formulaInput;
 let buildTimeout;
 let currentFormulaString = null;
+let vdwSurfaceGroup = null;
+const VDW_RADIUS_SCALE = 1.7;
 
 const backgroundVertexShader = `
 	varying vec3 vPosition;
@@ -104,6 +106,9 @@ function init() {
 	});
 	const background = new THREE.Mesh(backgroundGeometry, backgroundMaterial);
 	scene.add(background);
+	
+	vdwSurfaceGroup = new THREE.Group();
+	scene.add(vdwSurfaceGroup);
 	
 	camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 	camera.position.z = 15;
@@ -438,6 +443,28 @@ function initUI() {
 		document.removeEventListener('mouseup', onToolsMouseUp);
 	};
 	toolsHeader.addEventListener('mousedown', onToolsMouseDown);
+
+	const vdwToggle = document.getElementById('vdw-toggle');
+	const vdwOpacitySlider = document.getElementById('vdw-opacity-slider');
+	const vdwOptions = document.querySelector('.vdw-options');
+
+	vdwToggle.addEventListener('change', () => {
+		const isVisible = vdwToggle.checked;
+		vdwSurfaceGroup.visible = isVisible;
+		if (isVisible) {
+			vdwOptions.classList.remove('hidden');
+			updateVdwSurface();
+		} else {
+			vdwOptions.classList.add('hidden');
+		}
+	});
+
+	vdwOpacitySlider.addEventListener('input', () => {
+		const opacity = parseFloat(vdwOpacitySlider.value);
+		vdwSurfaceGroup.children.forEach(child => {
+			child.material.opacity = opacity;
+		});
+	});
 
 	const fullscreenButton = document.getElementById('fullscreen-button');
 	fullscreenButton.addEventListener('click', () => {
@@ -912,6 +939,8 @@ function deleteAtom(atomToDelete) {
 	scene.remove(atomToDelete.mesh);
 	atoms = atoms.filter(a => a !== atomToDelete);
 
+	updateVdwSurface();
+
 	neighbors.forEach(neighbor => updateAtomGeometry(neighbor));
 
 	if (atoms.length === 0) {
@@ -1152,6 +1181,7 @@ function addAtom(data, position) {
 	atoms.push(atom);
 	scene.add(mesh);
 	updateMoleculeInfo();
+	updateVdwSurface();
 	return atom;
 }
 
@@ -1370,6 +1400,49 @@ function createBond(atom1, atom2) {
 	}
 }
 
+function updateVdwSurface() {
+	if (!vdwSurfaceGroup.visible) {
+		return;
+	}
+
+	const currentOpacity = parseFloat(document.getElementById('vdw-opacity-slider').value);
+
+	const atomSphereMap = new Map();
+	const spheresToRemove = [];
+	vdwSurfaceGroup.children.forEach(child => {
+		if (child.userData.atom) {
+			if (atoms.includes(child.userData.atom)) {
+				atomSphereMap.set(child.userData.atom, child);
+			} else {
+				spheresToRemove.push(child);
+			}
+		}
+	});
+
+	spheresToRemove.forEach(sphere => {
+		sphere.geometry.dispose();
+		sphere.material.dispose();
+		vdwSurfaceGroup.remove(sphere);
+	});
+
+	atoms.forEach(atom => {
+		if (!atomSphereMap.has(atom)) {
+			const vdwRadius = atom.data.radius * VDW_RADIUS_SCALE;
+			const geometry = new THREE.SphereGeometry(vdwRadius, 32, 32);
+			const material = new THREE.MeshPhongMaterial({
+				color: atom.data.color,
+				transparent: true,
+				opacity: currentOpacity,
+				shininess: 50,
+				depthWrite: false,
+			});
+			const sphere = new THREE.Mesh(geometry, material);
+			sphere.userData.atom = atom;
+			vdwSurfaceGroup.add(sphere);
+		}
+	});
+}
+
 function updatePhysics(deltaTime) {
 	if (atoms.length >= 2) {
 		const repulsionStrength = 0.8;
@@ -1480,6 +1553,12 @@ function resetSimulation(isInternalCall = false) {
 	selectedAtom = null;
 	draggedAtom = null;
 	atomForBonding = null;
+
+	vdwSurfaceGroup.children.forEach(child => {
+		child.geometry.dispose();
+		child.material.dispose();
+	});
+	vdwSurfaceGroup.clear();
 
 	if (!isInternalCall) {
 		currentFormulaString = null;
@@ -2331,6 +2410,14 @@ function animate() {
 		updateBondMeshes();
 	} else {
 		updateBondMeshes();
+	}
+
+	if (vdwSurfaceGroup.visible) {
+		vdwSurfaceGroup.children.forEach(sphere => {
+			if (sphere.userData.atom) {
+				sphere.position.copy(sphere.userData.atom.position);
+			}
+		});
 	}
 
 	controls.update();
