@@ -1,28 +1,40 @@
-Ajouter un tutoriel ou une aide pour expliquer les commandes clavier.
-Afficher des infobulles dynamiques pour les contrôles (ex: "Maintenir Ctrl pour déplacer").
-Créer un panneau d'information dédié pour l'atome sélectionné affichant ses propriétés.
-Permettre la sauvegarde et le chargement de molécules.
-Générer un lien pour partager la molécule actuelle.
-Développer différents styles de rendu visuel (éclaté, fil de fer, bâtonnets seuls).
-Afficher les charges formelles directement sur les atomes.
-Intégrer un outil pour mesurer les longueurs et les angles de liaison.
-Calculer et afficher la masse molaire de la molécule.
-Permettre de briser une liaison spécifique sans supprimer un atome.
-Implémenter la rotation d'une partie de la molécule autour d'une liaison simple.
-Créer une bibliothèque de groupes fonctionnels prédéfinis.
-Supporter l'import et l'export de formats de fichiers chimiques (MOL, PDB).
-Fonctionnalité pour exporter la vue 3D en tant qu'image.
-Améliorer la simulation physique avec une minimisation d'énergie plus poussée.
-Proposer différents thèmes de couleur pour l'interface et les modèles atomiques.
-Gérer visuellement les liaisons aromatiques de manière distincte (ex: un cercle).
-Ajouter un bouton de "mode liaison" explicite pour les écrans tactiles.
-Enrichir le menu des paramètres avec des options de rendu ou de simulation.
-Optimiser les performances pour pouvoir gérer de très grandes molécules.
-Ajouter des fonds de scène 3D plus esthétiques.
-Permettre la construction plus facile d'ions polyatomiques.
-Outils pour la création de polymères.
-Fonctionnalité annuler/rétablir (undo/redo).
-Support des isotopes pour les atomes.
-Calculer le moment dipolaire de la molécule.
-Afficher la surface de van der Waals.
-Intégrer une recherche de molécules via une API externe comme PubChem.
+### Easiest to Implement
+
+1. Calculate and display the molecular molar mass.
+2. Functionality to export the 3D view as an image.
+4. Add an explicit "bond mode" button for touchscreens.
+5. Offer different color themes for the interface and atomic models.
+6. Enhance the settings menu with rendering or simulation options.
+7. Create a dedicated information panel for the selected atom, displaying its properties.
+
+### Moderately Difficult to Implement
+
+8. Display formal charges directly on atoms.
+9. Display hybridization state (sp, sp², sp³) on atoms.
+10. Develop different visual rendering styles (exploded, wireframe, single sticks).
+11. Allow breaking a specific bond without removing an atom.
+12. Integrate a tool to measure bond lengths and angles.
+13. Undo/redo functionality.
+
+### Difficult to Implement
+
+15. Calculate the molecule's dipole moment.
+17. Allow saving and loading molecules.
+18. Isotope support for atoms.
+
+### Very Difficult to Implement
+
+28. Symmetry element finder (planes, axes, inversion centers).
+29. Calculate and display Point Group symmetry.
+30. Support importing and exporting chemical file formats (MOL, PDB).
+31. Optimize performance to handle very large molecules.
+32. Isomerism explorer tool (structural, stereoisomers).
+33. Tools for polymer creation.
+34. Electron pushing arrow tool to illustrate reaction mechanisms.
+35. Display electrostatic potential maps on the molecule's surface.
+36. Tool to construct a crystal lattice from a unit cell.
+37. Visualize molecular orbitals (HOMO/LUMO).
+38. Animate molecular vibrational modes.
+39. Predict and display simplified NMR or IR spectra.
+40. Augmented Reality (AR) viewing mode.
+41. Generate a systematic IUPAC name for the current molecule.

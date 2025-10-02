@@ -23,8 +23,9 @@ let formulaInput;
 let buildTimeout;
 let currentFormulaString = null;
 let vdwSurfaceGroup = null;
-const VDW_RADIUS_SCALE = 1.7;
+let VDW_RADIUS_SCALE = 1.7;
 let formalChargeLabelsGroup = null;
+let snapGuideV, snapGuideH;
 
 const backgroundVertexShader = `
 	varying vec3 vPosition;
@@ -168,6 +169,17 @@ function initEventListeners() {
 }
 
 function initUI() {
+	const SNAP_DISTANCE = 20;
+	snapGuideV = document.getElementById('snap-guide-v');
+	snapGuideH = document.getElementById('snap-guide-h');
+	document.getElementById('vdw-toggle').checked = false;
+	const vdwOpacitySlider = document.getElementById('vdw-opacity-slider');
+	vdwOpacitySlider.value = vdwOpacitySlider.defaultValue;
+	const vdwScaleSlider = document.getElementById('vdw-scale-slider');
+	vdwScaleSlider.value = vdwScaleSlider.defaultValue;
+	document.getElementById('show-lone-pairs-toggle').checked = false;
+	document.getElementById('show-formal-charges-toggle').checked = false;
+
 	const uiContainer = document.getElementById('ui-container');
 	const header = uiContainer.querySelector('.header');
 	const toggleButton = document.getElementById('toggle-button');
@@ -218,6 +230,12 @@ function initUI() {
 	});
 
 	settingsIcon.addEventListener('click', () => {
+		uiContainer.classList.remove('hidden');
+		uiContainer.classList.remove('hiding');
+		settingsIcon.classList.add('hidden');
+
+		const lastTransform = lastKnownState ? lastKnownState.transform : `scale(${currentScale})`;
+
 		if (lastKnownState) {
 			uiContainer.style.left = lastKnownState.left;
 			uiContainer.style.top = lastKnownState.top;
@@ -231,9 +249,25 @@ function initUI() {
 			uiContainer.style.transform = `scale(${currentScale})`;
 			uiContainer.style.transformOrigin = 'top right';
 		}
-		uiContainer.classList.remove('hidden');
-		uiContainer.classList.remove('hiding');
-		settingsIcon.classList.add('hidden');
+
+		const panelRect = uiContainer.getBoundingClientRect();
+		const iconRect = settingsIcon.getBoundingClientRect();
+
+		const startX = iconRect.left - panelRect.left;
+		const startY = iconRect.top - panelRect.top;
+
+		uiContainer.style.setProperty('--current-transform', lastTransform);
+		uiContainer.style.setProperty('--start-tx', `${startX}px`);
+		uiContainer.style.setProperty('--start-ty', `${startY}px`);
+		
+		uiContainer.classList.add('showing');
+
+		uiContainer.addEventListener('animationend', () => {
+			uiContainer.classList.remove('showing');
+			uiContainer.style.removeProperty('--current-transform');
+			uiContainer.style.removeProperty('--start-tx');
+			uiContainer.style.removeProperty('--start-ty');
+		}, { once: true });
 	});
 
 	const infoContainer = document.getElementById('info-ui-container');
@@ -283,6 +317,12 @@ function initUI() {
 	};
 
 	const showInfoPanel = () => {
+		infoContainer.classList.remove('hidden');
+		infoContainer.classList.remove('hiding');
+		infoButton.classList.add('hidden');
+	
+		const lastTransform = infoLastKnownState ? infoLastKnownState.transform : 'scale(1)';
+	
 		if (infoLastKnownState) {
 			infoContainer.style.left = infoLastKnownState.left;
 			infoContainer.style.top = infoLastKnownState.top;
@@ -295,9 +335,25 @@ function initUI() {
 			infoContainer.style.transform = `scale(1)`;
 			infoContainer.style.transformOrigin = 'top left';
 		}
-		infoContainer.classList.remove('hidden');
-		infoContainer.classList.remove('hiding');
-		infoButton.classList.add('hidden');
+	
+		const panelRect = infoContainer.getBoundingClientRect();
+		const iconRect = infoButton.getBoundingClientRect();
+	
+		const startX = iconRect.left + (iconRect.width / 2) - (panelRect.left + (panelRect.width / 2) * 0);
+		const startY = iconRect.top + (iconRect.height / 2) - (panelRect.top + (panelRect.height / 2) * 0);
+	
+		infoContainer.style.setProperty('--current-transform', lastTransform);
+		infoContainer.style.setProperty('--start-tx', `${startX}px`);
+		infoContainer.style.setProperty('--start-ty', `${startY}px`);
+		
+		infoContainer.classList.add('showing');
+	
+		infoContainer.addEventListener('animationend', () => {
+			infoContainer.classList.remove('showing');
+			infoContainer.style.removeProperty('--current-transform');
+			infoContainer.style.removeProperty('--start-tx');
+			infoContainer.style.removeProperty('--start-ty');
+		}, { once: true });
 	};
 
 	infoButton.addEventListener('click', () => {
@@ -312,35 +368,174 @@ function initUI() {
 
 	let isInfoDragging = false;
 	let infoOffsetX, infoOffsetY;
-	const onInfoMouseDown = (e) => {
+	let infoLastClickTime = 0;
+
+	const startInfoDrag = (e, clientX, clientY) => {
 		if (e.target.closest('button')) return;
+
+		const now = Date.now();
+		if (now - infoLastClickTime < 300) {
+			infoContainer.style.top = '15px';
+			infoContainer.style.left = '15px';
+			infoContainer.style.right = 'auto';
+			infoContainer.style.bottom = 'auto';
+			infoContainer.style.transform = 'scale(1)';
+			infoContainer.style.transformOrigin = 'top left';
+			infoLastClickTime = 0;
+			e.preventDefault();
+			return;
+		}
+		infoLastClickTime = now;
+
 		isInfoDragging = true;
+		infoContainer.classList.add('is-dragging');
 		const rect = infoContainer.getBoundingClientRect();
 		infoContainer.style.right = 'auto';
+		infoContainer.style.bottom = 'auto';
 		infoContainer.style.transformOrigin = 'top left';
 		infoContainer.style.left = `${rect.left}px`;
 		infoContainer.style.top = `${rect.top}px`;
-		infoOffsetX = e.clientX - rect.left;
-		infoOffsetY = e.clientY - rect.top;
-		document.addEventListener('mousemove', onInfoMouseMove);
-		document.addEventListener('mouseup', onInfoMouseUp);
+		infoOffsetX = clientX - rect.left;
+		infoOffsetY = clientY - rect.top;
+	};
+
+	const onInfoMouseDown = (e) => {
+		startInfoDrag(e, e.clientX, e.clientY);
+		if (isInfoDragging) {
+			document.addEventListener('mousemove', onInfoMouseMove);
+			document.addEventListener('mouseup', onInfoMouseUp);
+		}
+	};
+
+	const onInfoTouchStart = (e) => {
+		e.preventDefault();
+		startInfoDrag(e, e.touches[0].clientX, e.touches[0].clientY);
+		if (isInfoDragging) {
+			document.addEventListener('touchmove', onInfoMouseMove, { passive: false });
+			document.addEventListener('touchend', onInfoMouseUp);
+		}
 	};
 
 	const onInfoMouseMove = (e) => {
 		if (!isInfoDragging) return;
 		e.preventDefault();
-		const x = e.clientX - infoOffsetX;
-		const y = e.clientY - infoOffsetY;
+
+		snapGuideV.style.display = 'none';
+		snapGuideH.style.display = 'none';
+
+		const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+		const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+		const unsnappedX = clientX - infoOffsetX;
+		const unsnappedY = clientY - infoOffsetY;
+		let x = unsnappedX;
+		let y = unsnappedY;
+
+		const rect = infoContainer.getBoundingClientRect();
+		const otherPanels = [uiContainer, toolsContainer].filter(p => !p.classList.contains('hidden'));
+
+		const panelSnapPointsX = [
+			{ type: 'left', offset: 0 },
+			{ type: 'center', offset: rect.width / 2 },
+			{ type: 'right', offset: rect.width }
+		];
+		const targetSnapPointsX = [
+			{ pos: 0 },
+			{ pos: window.innerWidth / 2 },
+			{ pos: window.innerWidth }
+		];
+		otherPanels.forEach(otherPanel => {
+			const otherRect = otherPanel.getBoundingClientRect();
+			targetSnapPointsX.push(
+				{ pos: otherRect.left },
+				{ pos: otherRect.left + otherRect.width / 2 },
+				{ pos: otherRect.right }
+			);
+		});
+
+		let minXDist = SNAP_DISTANCE;
+		let bestSnapX = null;
+
+		for (const p_snap of panelSnapPointsX) {
+			for (const t_snap of targetSnapPointsX) {
+				const dist = Math.abs((unsnappedX + p_snap.offset) - t_snap.pos);
+				if (dist < minXDist) {
+					minXDist = dist;
+					bestSnapX = { p_snap, t_snap };
+				}
+			}
+		}
+
+		if (bestSnapX) {
+			const delta = bestSnapX.t_snap.pos - (unsnappedX + bestSnapX.p_snap.offset);
+			x = unsnappedX + delta;
+			let guideX = bestSnapX.t_snap.pos;
+			if (guideX >= window.innerWidth) guideX = window.innerWidth - 1;
+			snapGuideV.style.left = `${guideX}px`;
+			snapGuideV.style.display = 'block';
+		}
+
+		const panelSnapPointsY = [
+			{ type: 'top', offset: 0 },
+			{ type: 'center', offset: rect.height / 2 },
+			{ type: 'bottom', offset: rect.height }
+		];
+		const targetSnapPointsY = [
+			{ pos: 0 },
+			{ pos: window.innerHeight / 2 },
+			{ pos: window.innerHeight }
+		];
+		otherPanels.forEach(otherPanel => {
+			const otherRect = otherPanel.getBoundingClientRect();
+			targetSnapPointsY.push(
+				{ pos: otherRect.top },
+				{ pos: otherRect.top + otherRect.height / 2 },
+				{ pos: otherRect.bottom }
+			);
+		});
+
+		let minYDist = SNAP_DISTANCE;
+		let bestSnapY = null;
+
+		for (const p_snap of panelSnapPointsY) {
+			for (const t_snap of targetSnapPointsY) {
+				const dist = Math.abs((unsnappedY + p_snap.offset) - t_snap.pos);
+				if (dist < minYDist) {
+					minYDist = dist;
+					bestSnapY = { p_snap, t_snap };
+				}
+			}
+		}
+		
+		if (bestSnapY) {
+			const delta = bestSnapY.t_snap.pos - (unsnappedY + bestSnapY.p_snap.offset);
+			y = unsnappedY + delta;
+			let guideY = bestSnapY.t_snap.pos;
+			if (guideY >= window.innerHeight) guideY = window.innerHeight - 1;
+			snapGuideH.style.top = `${guideY}px`;
+			snapGuideH.style.display = 'block';
+		}
+
+		const headerHeight = infoHeader.offsetHeight;
+		x = Math.max(-rect.width + headerHeight, Math.min(x, window.innerWidth - headerHeight));
+		y = Math.max(0, Math.min(y, window.innerHeight - headerHeight));
+
 		infoContainer.style.left = `${x}px`;
 		infoContainer.style.top = `${y}px`;
 	};
 
 	const onInfoMouseUp = () => {
 		isInfoDragging = false;
+		infoContainer.classList.remove('is-dragging');
+		if (snapGuideV) snapGuideV.style.display = 'none';
+		if (snapGuideH) snapGuideH.style.display = 'none';
 		document.removeEventListener('mousemove', onInfoMouseMove);
 		document.removeEventListener('mouseup', onInfoMouseUp);
+		document.removeEventListener('touchmove', onInfoMouseMove);
+		document.removeEventListener('touchend', onInfoMouseUp);
 	};
+
 	infoHeader.addEventListener('mousedown', onInfoMouseDown);
+	infoHeader.addEventListener('touchstart', onInfoTouchStart, { passive: false });
 
 	const toolsContainer = document.getElementById('tools-ui-container');
 	const toolsIcon = document.getElementById('tools-icon');
@@ -389,6 +584,12 @@ function initUI() {
 	};
 	
 	const showToolsPanel = () => {
+		toolsContainer.classList.remove('hidden');
+		toolsContainer.classList.remove('hiding');
+		toolsIcon.classList.add('hidden');
+
+		const lastTransform = toolsLastKnownState ? toolsLastKnownState.transform : 'scale(1)';
+
 		if (toolsLastKnownState) {
 			toolsContainer.style.left = toolsLastKnownState.left;
 			toolsContainer.style.top = toolsLastKnownState.top;
@@ -401,9 +602,25 @@ function initUI() {
 			toolsContainer.style.transform = `scale(1)`;
 			toolsContainer.style.transformOrigin = 'bottom left';
 		}
-		toolsContainer.classList.remove('hidden');
-		toolsContainer.classList.remove('hiding');
-		toolsIcon.classList.add('hidden');
+	
+		const panelRect = toolsContainer.getBoundingClientRect();
+		const iconRect = toolsIcon.getBoundingClientRect();
+
+		const startX = iconRect.left + (iconRect.width / 2) - (panelRect.left + (panelRect.width/2)*0);
+		const startY = iconRect.top + (iconRect.height / 2) - (panelRect.top + (panelRect.height/2)*0);
+
+		toolsContainer.style.setProperty('--current-transform', lastTransform);
+		toolsContainer.style.setProperty('--start-tx', `${startX}px`);
+		toolsContainer.style.setProperty('--start-ty', `${startY}px`);
+		
+		toolsContainer.classList.add('showing');
+
+		toolsContainer.addEventListener('animationend', () => {
+			toolsContainer.classList.remove('showing');
+			toolsContainer.style.removeProperty('--current-transform');
+			toolsContainer.style.removeProperty('--start-tx');
+			toolsContainer.style.removeProperty('--start-ty');
+		}, { once: true });
 	};
 
 	toolsIcon.addEventListener('click', () => {
@@ -417,56 +634,253 @@ function initUI() {
 
 	let isToolsDragging = false;
 	let toolsOffsetX, toolsOffsetY;
-	const onToolsMouseDown = (e) => {
+	let toolsLastClickTime = 0;
+
+	const startToolsDrag = (e, clientX, clientY) => {
 		if (e.target.closest('button')) return;
+
+		const now = Date.now();
+		if (now - toolsLastClickTime < 300) {
+			toolsContainer.style.bottom = '15px';
+			toolsContainer.style.left = '15px';
+			toolsContainer.style.top = 'auto';
+			toolsContainer.style.right = 'auto';
+			toolsContainer.style.transform = 'scale(1)';
+			toolsContainer.style.transformOrigin = 'bottom left';
+			toolsLastClickTime = 0;
+			e.preventDefault();
+			return;
+		}
+		toolsLastClickTime = now;
+
 		isToolsDragging = true;
+		toolsContainer.classList.add('is-dragging');
 		const rect = toolsContainer.getBoundingClientRect();
 		toolsContainer.style.left = `${rect.left}px`;
 		toolsContainer.style.top = `${rect.top}px`;
 		toolsContainer.style.bottom = 'auto';
+		toolsContainer.style.right = 'auto';
 		toolsContainer.style.transformOrigin = 'top left';
-		toolsOffsetX = e.clientX - rect.left;
-		toolsOffsetY = e.clientY - rect.top;
-		document.addEventListener('mousemove', onToolsMouseMove);
-		document.addEventListener('mouseup', onToolsMouseUp);
+		toolsOffsetX = clientX - rect.left;
+		toolsOffsetY = clientY - rect.top;
+	};
+
+	const onToolsMouseDown = (e) => {
+		startToolsDrag(e, e.clientX, e.clientY);
+		if (isToolsDragging) {
+			document.addEventListener('mousemove', onToolsMouseMove);
+			document.addEventListener('mouseup', onToolsMouseUp);
+		}
+	};
+
+	const onToolsTouchStart = (e) => {
+		e.preventDefault();
+		startToolsDrag(e, e.touches[0].clientX, e.touches[0].clientY);
+		if (isToolsDragging) {
+			document.addEventListener('touchmove', onToolsMouseMove, { passive: false });
+			document.addEventListener('touchend', onToolsMouseUp);
+		}
 	};
 
 	const onToolsMouseMove = (e) => {
 		if (!isToolsDragging) return;
 		e.preventDefault();
-		const x = e.clientX - toolsOffsetX;
-		const y = e.clientY - toolsOffsetY;
+
+		snapGuideV.style.display = 'none';
+		snapGuideH.style.display = 'none';
+
+		const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+		const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+		const unsnappedX = clientX - toolsOffsetX;
+		const unsnappedY = clientY - toolsOffsetY;
+		let x = unsnappedX;
+		let y = unsnappedY;
+
+		const rect = toolsContainer.getBoundingClientRect();
+		const otherPanels = [uiContainer, infoContainer].filter(p => !p.classList.contains('hidden'));
+
+		const panelSnapPointsX = [
+			{ type: 'left', offset: 0 },
+			{ type: 'center', offset: rect.width / 2 },
+			{ type: 'right', offset: rect.width }
+		];
+		const targetSnapPointsX = [
+			{ pos: 0 },
+			{ pos: window.innerWidth / 2 },
+			{ pos: window.innerWidth }
+		];
+		otherPanels.forEach(otherPanel => {
+			const otherRect = otherPanel.getBoundingClientRect();
+			targetSnapPointsX.push(
+				{ pos: otherRect.left },
+				{ pos: otherRect.left + otherRect.width / 2 },
+				{ pos: otherRect.right }
+			);
+		});
+
+		let minXDist = SNAP_DISTANCE;
+		let bestSnapX = null;
+
+		for (const p_snap of panelSnapPointsX) {
+			for (const t_snap of targetSnapPointsX) {
+				const dist = Math.abs((unsnappedX + p_snap.offset) - t_snap.pos);
+				if (dist < minXDist) {
+					minXDist = dist;
+					bestSnapX = { p_snap, t_snap };
+				}
+			}
+		}
+
+		if (bestSnapX) {
+			const delta = bestSnapX.t_snap.pos - (unsnappedX + bestSnapX.p_snap.offset);
+			x = unsnappedX + delta;
+			let guideX = bestSnapX.t_snap.pos;
+			if (guideX >= window.innerWidth) guideX = window.innerWidth - 1;
+			snapGuideV.style.left = `${guideX}px`;
+			snapGuideV.style.display = 'block';
+		}
+
+		const panelSnapPointsY = [
+			{ type: 'top', offset: 0 },
+			{ type: 'center', offset: rect.height / 2 },
+			{ type: 'bottom', offset: rect.height }
+		];
+		const targetSnapPointsY = [
+			{ pos: 0 },
+			{ pos: window.innerHeight / 2 },
+			{ pos: window.innerHeight }
+		];
+		otherPanels.forEach(otherPanel => {
+			const otherRect = otherPanel.getBoundingClientRect();
+			targetSnapPointsY.push(
+				{ pos: otherRect.top },
+				{ pos: otherRect.top + otherRect.height / 2 },
+				{ pos: otherRect.bottom }
+			);
+		});
+
+		let minYDist = SNAP_DISTANCE;
+		let bestSnapY = null;
+
+		for (const p_snap of panelSnapPointsY) {
+			for (const t_snap of targetSnapPointsY) {
+				const dist = Math.abs((unsnappedY + p_snap.offset) - t_snap.pos);
+				if (dist < minYDist) {
+					minYDist = dist;
+					bestSnapY = { p_snap, t_snap };
+				}
+			}
+		}
+
+		if (bestSnapY) {
+			const delta = bestSnapY.t_snap.pos - (unsnappedY + bestSnapY.p_snap.offset);
+			y = unsnappedY + delta;
+			let guideY = bestSnapY.t_snap.pos;
+			if (guideY >= window.innerHeight) guideY = window.innerHeight - 1;
+			snapGuideH.style.top = `${guideY}px`;
+			snapGuideH.style.display = 'block';
+		}
+
+		const headerHeight = toolsHeader.offsetHeight;
+		x = Math.max(-rect.width + headerHeight, Math.min(x, window.innerWidth - headerHeight));
+		y = Math.max(0, Math.min(y, window.innerHeight - headerHeight));
+
 		toolsContainer.style.left = `${x}px`;
 		toolsContainer.style.top = `${y}px`;
 	};
 
 	const onToolsMouseUp = () => {
 		isToolsDragging = false;
+		toolsContainer.classList.remove('is-dragging');
+		if (snapGuideV) snapGuideV.style.display = 'none';
+		if (snapGuideH) snapGuideH.style.display = 'none';
 		document.removeEventListener('mousemove', onToolsMouseMove);
 		document.removeEventListener('mouseup', onToolsMouseUp);
+		document.removeEventListener('touchmove', onToolsMouseMove);
+		document.removeEventListener('touchend', onToolsMouseUp);
 	};
 	toolsHeader.addEventListener('mousedown', onToolsMouseDown);
+	toolsHeader.addEventListener('touchstart', onToolsTouchStart, { passive: false });
+	
+	let highestZIndex = 12;
+	const allPanels = [uiContainer, infoContainer, toolsContainer];
+	allPanels.forEach(panel => {
+		panel.addEventListener('mousedown', () => {
+			highestZIndex++;
+			panel.style.zIndex = highestZIndex;
 
+			allPanels.forEach(p => {
+				if (p !== panel) {
+					if (!p.classList.contains('hidden')) {
+						p.classList.add('panel-out-of-focus');
+					}
+				} else {
+					p.classList.remove('panel-out-of-focus');
+				}
+			});
+		});
+	});
+	
 	const vdwToggle = document.getElementById('vdw-toggle');
-	const vdwOpacitySlider = document.getElementById('vdw-opacity-slider');
-	const vdwOptions = document.querySelector('.vdw-options');
+	const vdwOptions = document.querySelectorAll('.vdw-options');
 
 	vdwToggle.addEventListener('change', () => {
 		const isVisible = vdwToggle.checked;
 		vdwSurfaceGroup.visible = isVisible;
 		if (isVisible) {
-			vdwOptions.classList.remove('hidden');
+			vdwOptions.forEach(el => el.classList.remove('hidden'));
 			updateVdwSurface();
 		} else {
-			vdwOptions.classList.add('hidden');
+			vdwOptions.forEach(el => el.classList.add('hidden'));
 		}
 	});
 
-	vdwOpacitySlider.addEventListener('input', () => {
-		const opacity = parseFloat(vdwOpacitySlider.value);
-		vdwSurfaceGroup.children.forEach(child => {
-			child.material.opacity = opacity;
+	document.querySelectorAll('.slider-with-value').forEach(container => {
+		const slider = container.querySelector('input[type="range"]');
+		const valueSpan = container.querySelector('span');
+		if (!slider || !valueSpan) return;
+
+		valueSpan.style.display = 'none';
+
+		const tooltip = document.createElement('div');
+		tooltip.className = 'slider-tooltip';
+		container.appendChild(tooltip);
+
+		const updateSlider = () => {
+			const value = parseFloat(slider.value);
+			tooltip.textContent = value.toFixed(2);
+
+			const min = parseFloat(slider.min);
+			const max = parseFloat(slider.max);
+			const percent = (value - min) / (max - min);
+
+			const thumbWidth = 16;
+			const trackWidth = slider.offsetWidth - thumbWidth;
+			const thumbPosition = percent * trackWidth + (thumbWidth / 2);
+			tooltip.style.left = `${thumbPosition+10}px`;
+			
+			if (slider.id === 'vdw-opacity-slider') {
+				vdwSurfaceGroup.children.forEach(child => {
+					child.material.opacity = value;
+				});
+			} else if (slider.id === 'vdw-scale-slider') {
+				VDW_RADIUS_SCALE = value;
+				updateVdwSurface();
+			}
+		};
+
+		slider.addEventListener('input', updateSlider);
+
+		slider.addEventListener('mouseover', () => {
+			tooltip.classList.add('visible');
+			updateSlider();
 		});
+
+		slider.addEventListener('mouseout', () => {
+			tooltip.classList.remove('visible');
+		});
+
+		updateSlider();
 	});
 
 	const formalChargeToggle = document.getElementById('show-formal-charges-toggle');
@@ -476,6 +890,18 @@ function initUI() {
 		if (isVisible) {
 			updateFormalChargeLabels();
 		}
+	});
+
+	const lonePairToggle = document.getElementById('show-lone-pairs-toggle');
+	lonePairToggle.addEventListener('change', () => {
+		const isVisible = lonePairToggle.checked;
+		atoms.forEach(atom => {
+			if (atom.lonePairs) {
+				atom.lonePairs.forEach(lpMesh => {
+					lpMesh.visible = isVisible;
+				});
+			}
+		});
 	});
 
 	const fullscreenButton = document.getElementById('fullscreen-button');
@@ -509,7 +935,7 @@ function initUI() {
 
 	const resizeHandle = document.getElementById('resize-handle');
 	let isResizing = false;
-	let currentScale = 0.8;
+	let currentScale = 1;
 	let initialUnscaledWidth;
 	let initialMouseX;
 
@@ -520,8 +946,8 @@ function initUI() {
 		e.stopPropagation();
 		isResizing = true;
 		
-		uiContainer.style.transformOrigin = 'top right';
 		const rect = uiContainer.getBoundingClientRect();
+		uiContainer.style.transformOrigin = 'top right';
 		uiContainer.style.left = 'auto';
 		uiContainer.style.right = `${window.innerWidth - rect.right}px`;
 		
@@ -559,38 +985,175 @@ function initUI() {
 
 	let isDragging = false;
 	let offsetX, offsetY;
-	const onMouseDown = (e) => {
-		if (e.target.closest('button') || e.target.id === 'resize-handle' || e.target.id === 'formula-input') return;
-		isDragging = true;
+	let lastClickTime = 0;
 
+	const startDrag = (e, clientX, clientY) => {
+		if (e.target.closest('button') || e.target.id === 'resize-handle' || e.target.id === 'formula-input') return;
+
+		const now = Date.now();
+		if (now - lastClickTime < 300) {
+			uiContainer.style.top = '15px';
+			uiContainer.style.right = '15px';
+			uiContainer.style.left = 'auto';
+			uiContainer.style.bottom = 'auto';
+			uiContainer.style.transform = `scale(1)`;
+			uiContainer.style.transformOrigin = 'top right';
+			currentScale = 1;
+			lastClickTime = 0;
+			e.preventDefault();
+			return;
+		}
+		lastClickTime = now;
+
+		isDragging = true;
+		uiContainer.classList.add('is-dragging');
 		const rect = uiContainer.getBoundingClientRect();
 		uiContainer.style.right = 'auto';
+		uiContainer.style.bottom = 'auto';
 		uiContainer.style.transformOrigin = 'top left';
 		uiContainer.style.left = `${rect.left}px`;
 		uiContainer.style.top = `${rect.top}px`;
+		offsetX = clientX - rect.left;
+		offsetY = clientY - rect.top;
+	};
 
-		offsetX = e.clientX - rect.left;
-		offsetY = e.clientY - rect.top;
+	const onMouseDown = (e) => {
+		startDrag(e, e.clientX, e.clientY);
+		if (isDragging) {
+			document.addEventListener('mousemove', onMouseMove);
+			document.addEventListener('mouseup', onMouseUp);
+		}
+	};
 
-		document.addEventListener('mousemove', onMouseMove);
-		document.addEventListener('mouseup', onMouseUp);
+	const onTouchStart = (e) => {
+		e.preventDefault();
+		startDrag(e, e.touches[0].clientX, e.touches[0].clientY);
+		if (isDragging) {
+			document.addEventListener('touchmove', onMouseMove, { passive: false });
+			document.addEventListener('touchend', onMouseUp);
+		}
 	};
 
 	const onMouseMove = (e) => {
 		if (!isDragging) return;
 		e.preventDefault();
-		const x = e.clientX - offsetX;
-		const y = e.clientY - offsetY;
+
+		snapGuideV.style.display = 'none';
+		snapGuideH.style.display = 'none';
+
+		const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+		const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+		const unsnappedX = clientX - offsetX;
+		const unsnappedY = clientY - offsetY;
+		let x = unsnappedX;
+		let y = unsnappedY;
+
+		const rect = uiContainer.getBoundingClientRect();
+		const otherPanels = [infoContainer, toolsContainer].filter(p => !p.classList.contains('hidden'));
+
+		const panelSnapPointsX = [
+			{ type: 'left', offset: 0 },
+			{ type: 'center', offset: rect.width / 2 },
+			{ type: 'right', offset: rect.width }
+		];
+		const targetSnapPointsX = [
+			{ pos: 0 },
+			{ pos: window.innerWidth / 2 },
+			{ pos: window.innerWidth }
+		];
+		otherPanels.forEach(otherPanel => {
+			const otherRect = otherPanel.getBoundingClientRect();
+			targetSnapPointsX.push(
+				{ pos: otherRect.left },
+				{ pos: otherRect.left + otherRect.width / 2 },
+				{ pos: otherRect.right }
+			);
+		});
+
+		let minXDist = SNAP_DISTANCE;
+		let bestSnapX = null;
+
+		for (const p_snap of panelSnapPointsX) {
+			for (const t_snap of targetSnapPointsX) {
+				const dist = Math.abs((unsnappedX + p_snap.offset) - t_snap.pos);
+				if (dist < minXDist) {
+					minXDist = dist;
+					bestSnapX = { p_snap, t_snap };
+				}
+			}
+		}
+
+		if (bestSnapX) {
+			const delta = bestSnapX.t_snap.pos - (unsnappedX + bestSnapX.p_snap.offset);
+			x = unsnappedX + delta;
+			let guideX = bestSnapX.t_snap.pos;
+			if (guideX >= window.innerWidth) guideX = window.innerWidth - 1;
+			snapGuideV.style.left = `${guideX}px`;
+			snapGuideV.style.display = 'block';
+		}
+
+		const panelSnapPointsY = [
+			{ type: 'top', offset: 0 },
+			{ type: 'center', offset: rect.height / 2 },
+			{ type: 'bottom', offset: rect.height }
+		];
+		const targetSnapPointsY = [
+			{ pos: 0 },
+			{ pos: window.innerHeight / 2 },
+			{ pos: window.innerHeight }
+		];
+		otherPanels.forEach(otherPanel => {
+			const otherRect = otherPanel.getBoundingClientRect();
+			targetSnapPointsY.push(
+				{ pos: otherRect.top },
+				{ pos: otherRect.top + otherRect.height / 2 },
+				{ pos: otherRect.bottom }
+			);
+		});
+
+		let minYDist = SNAP_DISTANCE;
+		let bestSnapY = null;
+
+		for (const p_snap of panelSnapPointsY) {
+			for (const t_snap of targetSnapPointsY) {
+				const dist = Math.abs((unsnappedY + p_snap.offset) - t_snap.pos);
+				if (dist < minYDist) {
+					minYDist = dist;
+					bestSnapY = { p_snap, t_snap };
+				}
+			}
+		}
+
+		if (bestSnapY) {
+			const delta = bestSnapY.t_snap.pos - (unsnappedY + bestSnapY.p_snap.offset);
+			y = unsnappedY + delta;
+			let guideY = bestSnapY.t_snap.pos;
+			if (guideY >= window.innerHeight) guideY = window.innerHeight - 1;
+			snapGuideH.style.top = `${guideY}px`;
+			snapGuideH.style.display = 'block';
+		}
+
+		const headerHeight = header.offsetHeight;
+		x = Math.max(-rect.width + headerHeight, Math.min(x, window.innerWidth - headerHeight));
+		y = Math.max(0, Math.min(y, window.innerHeight - headerHeight));
+
 		uiContainer.style.left = `${x}px`;
 		uiContainer.style.top = `${y}px`;
 	};
 
 	const onMouseUp = () => {
 		isDragging = false;
+		uiContainer.classList.remove('is-dragging');
+		if (snapGuideV) snapGuideV.style.display = 'none';
+		if (snapGuideH) snapGuideH.style.display = 'none';
 		document.removeEventListener('mousemove', onMouseMove);
 		document.removeEventListener('mouseup', onMouseUp);
+		document.removeEventListener('touchmove', onMouseMove);
+		document.removeEventListener('touchend', onMouseUp);
 	};
+
 	header.addEventListener('mousedown', onMouseDown);
+	header.addEventListener('touchstart', onTouchStart, { passive: false });
 }
 
 function onKeyDown(event) {
@@ -737,6 +1300,9 @@ function onMouseDown3D(event) {
 		}
 	} else if (event.button === 0) {
 		deselectAllAtoms();
+		document.getElementById('ui-container').classList.remove('panel-out-of-focus');
+		document.getElementById('info-ui-container').classList.remove('panel-out-of-focus');
+		document.getElementById('tools-ui-container').classList.remove('panel-out-of-focus');
 	}
 }
 
@@ -1385,6 +1951,7 @@ function updateAtomGeometry(centralAtom) {
 		rotatedIdealDirections.forEach((dir, i) => {
 			if (!usedIndices.has(i)) {
 				const lpMesh = new THREE.Mesh(lonePairGeometry, lonePairMaterial);
+				lpMesh.visible = document.getElementById('show-lone-pairs-toggle').checked;
 				
 				const relativePos = dir.clone().multiplyScalar(centralAtom.data.radius * 0.75);
 				lpMesh.position.copy(relativePos);
@@ -1508,8 +2075,14 @@ function updateVdwSurface() {
 	});
 
 	atoms.forEach(atom => {
-		if (!atomSphereMap.has(atom)) {
-			const vdwRadius = atom.data.radius * VDW_RADIUS_SCALE;
+		const vdwRadius = atom.data.radius * VDW_RADIUS_SCALE;
+		if (atomSphereMap.has(atom)) {
+			const sphere = atomSphereMap.get(atom);
+			if (sphere.geometry.parameters.radius !== vdwRadius) {
+				sphere.geometry.dispose();
+				sphere.geometry = new THREE.SphereGeometry(vdwRadius, 32, 32);
+			}
+		} else {
 			const geometry = new THREE.SphereGeometry(vdwRadius, 32, 32);
 			const material = new THREE.MeshPhongMaterial({
 				color: atom.data.color,
