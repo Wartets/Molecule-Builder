@@ -24,6 +24,7 @@ let buildTimeout;
 let currentFormulaString = null;
 let vdwSurfaceGroup = null;
 const VDW_RADIUS_SCALE = 1.7;
+let formalChargeLabelsGroup = null;
 
 const backgroundVertexShader = `
 	varying vec3 vPosition;
@@ -109,6 +110,10 @@ function init() {
 	
 	vdwSurfaceGroup = new THREE.Group();
 	scene.add(vdwSurfaceGroup);
+
+	formalChargeLabelsGroup = new THREE.Group();
+	formalChargeLabelsGroup.visible = false;
+	scene.add(formalChargeLabelsGroup);
 	
 	camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 	camera.position.z = 15;
@@ -124,8 +129,6 @@ function init() {
 	const boxGeometry = new THREE.BoxGeometry(100, 100, 100);
 	const edges = new THREE.EdgesGeometry(boxGeometry);
 	const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333 }));
-
-	// line.rotation.y = THREE.MathUtils.degToRad(90 * (1 - 2*Math.random()));
 
 	scene.add(line);
 
@@ -464,6 +467,15 @@ function initUI() {
 		vdwSurfaceGroup.children.forEach(child => {
 			child.material.opacity = opacity;
 		});
+	});
+
+	const formalChargeToggle = document.getElementById('show-formal-charges-toggle');
+	formalChargeToggle.addEventListener('change', () => {
+		const isVisible = formalChargeToggle.checked;
+		formalChargeLabelsGroup.visible = isVisible;
+		if (isVisible) {
+			updateFormalChargeLabels();
+		}
 	});
 
 	const fullscreenButton = document.getElementById('fullscreen-button');
@@ -971,10 +983,17 @@ function getFormalCharge(atom) {
 	const valence = atom.data.valenceElectrons || (atom.data.col ? (atom.data.col > 12 ? atom.data.col - 10 : atom.data.col) : 0);
 	if (!valence) return 0;
 
-	const lonePairElectrons = getLonePairs(atom) * 2;
-	const bondingElectronsAssigned = getBondOrderSum(atom);
+	const bondOrderSum = getBondOrderSum(atom);
+	const electronsInBonds = bondOrderSum * 2;
+	let lonePairElectrons;
 
-	return valence - lonePairElectrons - bondingElectronsAssigned;
+	if (atom.data.row >= 2 && atom.data.electronegativity > 2.8) {
+		lonePairElectrons = Math.max(0, 8 - electronsInBonds);
+	} else {
+		lonePairElectrons = getLonePairs(atom) * 2;
+	}
+
+	return valence - lonePairElectrons - bondOrderSum;
 }
 
 function validateAndColorAtoms() {
@@ -1022,6 +1041,66 @@ function validateAndColorAtoms() {
 	if (atomForBonding) {
 		atomForBonding.mesh.material.emissive.setHex(0x005588);
 	}
+
+	updateFormalChargeLabels();
+}
+
+function createChargeLabel(charge) {
+	const canvas = document.createElement('canvas');
+	const context = canvas.getContext('2d');
+	const size = 128;
+	canvas.width = size;
+	canvas.height = size;
+
+	context.font = 'bold 96px Arial';
+	context.textAlign = 'center';
+	context.textBaseline = 'middle';
+
+	context.fillStyle = 'rgba(20, 20, 20, 0.6)';
+	context.beginPath();
+	context.arc(size / 2, size / 2, size / 2, 0, 2 * Math.PI);
+	context.fill();
+	
+	context.fillStyle = 'white';
+	let chargeText = '';
+	if (charge > 0) {
+		chargeText = (charge > 1 ? charge : '') + '+';
+	} else if (charge < 0) {
+		chargeText = (charge < -1 ? -charge : '') + '−';
+	}
+
+	context.fillText(chargeText, size / 2, size / 2);
+
+	const texture = new THREE.CanvasTexture(canvas);
+	const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+	const sprite = new THREE.Sprite(material);
+	
+	const scale = 0.8;
+	sprite.scale.set(scale, scale, scale);
+	
+	return sprite;
+}
+
+function updateFormalChargeLabels() {
+	if (!formalChargeLabelsGroup.visible) {
+		return;
+	}
+
+	while (formalChargeLabelsGroup.children.length > 0) {
+		const child = formalChargeLabelsGroup.children[0];
+		if (child.material.map) child.material.map.dispose();
+		if (child.material) child.material.dispose();
+		formalChargeLabelsGroup.remove(child);
+	}
+
+	atoms.forEach(atom => {
+		const charge = getFormalCharge(atom);
+		if (charge !== 0) {
+			const label = createChargeLabel(charge);
+			label.userData.atom = atom;
+			formalChargeLabelsGroup.add(label);
+		}
+	});
 }
 
 function updatePeriodicTableState() {
@@ -1559,6 +1638,13 @@ function resetSimulation(isInternalCall = false) {
 		child.material.dispose();
 	});
 	vdwSurfaceGroup.clear();
+
+	while (formalChargeLabelsGroup.children.length > 0) {
+		const child = formalChargeLabelsGroup.children[0];
+		if (child.material.map) child.material.map.dispose();
+		if (child.material) child.material.dispose();
+		formalChargeLabelsGroup.remove(child);
+	}
 
 	if (!isInternalCall) {
 		currentFormulaString = null;
@@ -2416,6 +2502,15 @@ function animate() {
 		vdwSurfaceGroup.children.forEach(sphere => {
 			if (sphere.userData.atom) {
 				sphere.position.copy(sphere.userData.atom.position);
+			}
+		});
+	}
+
+	if (formalChargeLabelsGroup.visible) {
+		formalChargeLabelsGroup.children.forEach(label => {
+			if (label.userData.atom) {
+				const offset = new THREE.Vector3(0, label.userData.atom.data.radius + 0.3, 0);
+				label.position.copy(label.userData.atom.position).add(offset);
 			}
 		});
 	}
