@@ -83,6 +83,11 @@ let moleculeInfoDiv, moleculeFormulaSpan, moleculeNameSpan;
 
 const FORMULA_TO_BUILDER = {
 	'C6H6': buildBenzeneMolecule,
+	'C10H8': buildNaphthalene,
+	'C10H16': buildAdamantane,
+	'C8H8': buildCubane,
+	'C6H12': buildCyclohexaneChair,
+	'C6H12O6': buildGlucose
 };
 
 const NAME_TO_FORMULA = {};
@@ -110,6 +115,7 @@ function init() {
 	scene.add(background);
 	
 	vdwSurfaceGroup = new THREE.Group();
+	vdwSurfaceGroup.visible = false;
 	scene.add(vdwSurfaceGroup);
 
 	formalChargeLabelsGroup = new THREE.Group();
@@ -174,6 +180,8 @@ function initUI() {
 	const SNAP_DISTANCE = 20;
 	snapGuideV = document.getElementById('snap-guide-v');
 	snapGuideH = document.getElementById('snap-guide-h');
+	const vdwToggle = document.getElementById('vdw-toggle');
+	const vdwOptions = document.querySelectorAll('.vdw-options');
 	document.getElementById('vdw-toggle').checked = false;
 	const vdwOpacitySlider = document.getElementById('vdw-opacity-slider');
 	vdwOpacitySlider.value = vdwOpacitySlider.defaultValue;
@@ -878,9 +886,6 @@ function initUI() {
 		panel.addEventListener('mousedown', bringToFront);
 		panel.addEventListener('touchstart', bringToFront, {passive: false});
 	});
-	
-	const vdwToggle = document.getElementById('vdw-toggle');
-	const vdwOptions = document.querySelectorAll('.vdw-options');
 
 	vdwToggle.addEventListener('change', () => {
 		const isVisible = vdwToggle.checked;
@@ -2975,6 +2980,215 @@ function buildBenzeneMolecule() {
 
 	const attachmentPoint = carbons.length > 0 ? carbons[0] : null;
 	return { atoms: newAtoms, attachmentPoint: attachmentPoint, chainEnd: attachmentPoint };
+}
+
+function buildNaphthalene() {
+	const cData = elementsData.find(e => e.symbol === 'C');
+	const hData = elementsData.find(e => e.symbol === 'H');
+	const allNewAtoms = [];
+
+	const coords = [
+		{x: 1.225, y: 1.414, z: 0},
+		{x: 2.450, y: 0.707, z: 0},
+		{x: 2.450, y: -0.707, z: 0},
+		{x: 1.225, y: -1.414, z: 0},
+		{x: -1.225, y: -1.414, z: 0},
+		{x: -2.450, y: -0.707, z: 0},
+		{x: -2.450, y: 0.707, z: 0},
+		{x: -1.225, y: 1.414, z: 0},
+		{x: 0.000, y: 0.707, z: 0},
+		{x: 0.000, y: -0.707, z: 0}
+	];
+
+	const carbons = coords.map(c => addAtom(cData, new THREE.Vector3(c.x, c.y, c.z)));
+	allNewAtoms.push(...carbons);
+
+	const c = carbons;
+
+	createBond(c[8], c[9]);
+	createBond(c[8], c[0]);
+	createBond(c[0], c[1]);
+	createBond(c[1], c[2]);
+	createBond(c[2], c[3]);
+	createBond(c[3], c[9]);
+	createBond(c[8], c[7]);
+	createBond(c[7], c[6]);
+	createBond(c[6], c[5]);
+	createBond(c[5], c[4]);
+	createBond(c[4], c[9]);
+
+	for (let i = 0; i < 8; i++) {
+		const hAtom = placeAtom(hData, carbons[i]);
+		allNewAtoms.push(hAtom);
+	}
+
+	return { atoms: allNewAtoms, attachmentPoint: carbons[0], chainEnd: carbons[0] };
+}
+
+function buildAdamantane() {
+	const cData = elementsData.find(e => e.symbol === 'C');
+	const hData = elementsData.find(e => e.symbol === 'H');
+	const allNewAtoms = [];
+	
+	const l = 1.089;
+
+	const bh_coords = [
+		{ x:  l, y:  l, z: -l },
+		{ x:  l, y: -l, z:  l },
+		{ x: -l, y:  l, z:  l },
+		{ x: -l, y: -l, z: -l }
+	];
+
+	const b_coords = [
+		{ x:  l, y:  0, z:  0 },
+		{ x: -l, y:  0, z:  0 },
+		{ x:  0, y:  l, z:  0 },
+		{ x:  0, y: -l, z:  0 },
+		{ x:  0, y:  0, z:  l },
+		{ x:  0, y:  0, z: -l }
+	];
+
+	const carbons_bh = bh_coords.map(c => addAtom(cData, new THREE.Vector3(c.x, c.y, c.z)));
+	const carbons_b = b_coords.map(c => addAtom(cData, new THREE.Vector3(c.x, c.y, c.z)));
+	const carbons = [...carbons_bh, ...carbons_b];
+	allNewAtoms.push(...carbons);
+
+	const bh = carbons_bh;
+	const b = carbons_b;
+
+	createBond(bh[0], b[0]);
+	createBond(bh[0], b[2]);
+	createBond(bh[0], b[5]);
+	createBond(bh[1], b[0]);
+	createBond(bh[1], b[3]);
+	createBond(bh[1], b[4]);
+	createBond(bh[2], b[1]);
+	createBond(bh[2], b[2]);
+	createBond(bh[2], b[4]);
+	createBond(bh[3], b[1]);
+	createBond(bh[3], b[3]);
+	createBond(bh[3], b[5]);
+
+	carbons_bh.forEach(c => {
+		allNewAtoms.push(placeAtom(hData, c));
+	});
+	carbons_b.forEach(c => {
+		allNewAtoms.push(placeAtom(hData, c));
+		allNewAtoms.push(placeAtom(hData, c));
+	});
+
+	return { atoms: allNewAtoms, attachmentPoint: carbons[0], chainEnd: carbons[0] };
+}
+
+function buildCubane() {
+	const cData = elementsData.find(e => e.symbol === 'C');
+	const hData = elementsData.find(e => e.symbol === 'H');
+	const allNewAtoms = [];
+	
+	const s = 1.54 / 2;
+
+	const coords = [
+		{ x:  s, y:  s, z:  s }, { x:  s, y:  s, z: -s },
+		{ x:  s, y: -s, z:  s }, { x:  s, y: -s, z: -s },
+		{ x: -s, y:  s, z:  s }, { x: -s, y:  s, z: -s },
+		{ x: -s, y: -s, z:  s }, { x: -s, y: -s, z: -s }
+	];
+
+	const carbons = coords.map(c => addAtom(cData, new THREE.Vector3(c.x, c.y, c.z)));
+	allNewAtoms.push(...carbons);
+
+	const c = carbons;
+
+	createBond(c[0], c[1]); createBond(c[1], c[3]); createBond(c[3], c[2]); createBond(c[2], c[0]);
+	createBond(c[4], c[5]); createBond(c[5], c[7]); createBond(c[7], c[6]); createBond(c[6], c[4]);
+	createBond(c[0], c[4]); createBond(c[1], c[5]); createBond(c[2], c[6]); createBond(c[3], c[7]);
+
+	carbons.forEach(carbon => {
+		allNewAtoms.push(placeAtom(hData, carbon));
+	});
+
+	return { atoms: allNewAtoms, attachmentPoint: carbons[0], chainEnd: carbons[0] };
+}
+
+function buildCyclohexaneChair() {
+	const cData = elementsData.find(e => e.symbol === 'C');
+	const hData = elementsData.find(e => e.symbol === 'H');
+	const allNewAtoms = [];
+
+	const coords = [
+		{ x:  1.299, y: -0.750, z:  0.000 },
+		{ x:  1.299, y:  0.750, z:  0.000 },
+		{ x:  0.000, y:  1.253, z: -0.517 },
+		{ x: -1.299, y:  0.750, z:  0.000 },
+		{ x: -1.299, y: -0.750, z:  0.000 },
+		{ x:  0.000, y: -1.253, z:  0.517 }
+	];
+	
+	const carbons = coords.map(c => addAtom(cData, new THREE.Vector3(c.x, c.y, c.z)));
+	allNewAtoms.push(...carbons);
+
+	for (let i = 0; i < 6; i++) {
+		createBond(carbons[i], carbons[(i + 1) % 6]);
+	}
+
+	carbons.forEach(c => {
+		allNewAtoms.push(placeAtom(hData, c));
+		allNewAtoms.push(placeAtom(hData, c));
+	});
+
+	return { atoms: allNewAtoms, attachmentPoint: carbons[0], chainEnd: carbons[3] };
+}
+
+function buildGlucose() {
+	const cData = elementsData.find(e => e.symbol === 'C');
+	const oData = elementsData.find(e => e.symbol === 'O');
+	const hData = elementsData.find(e => e.symbol === 'H');
+	const allNewAtoms = [];
+	const scale = 1.0;
+
+	const heavyAtomCoords = {
+		'O5': { x: 1.181, y: -0.479, z: 0.287 },
+		'C1': { x: 1.309, y: 0.827,  z: -0.366 },
+		'C2': { x: 0.002, y: 1.542,  z: -0.063 },
+		'C3': { x: -1.181, y: 0.479, z: -0.287 },
+		'C4': { x: -1.309, y: -0.827, z: 0.366 },
+		'C5': { x: -0.002, y: -1.542, z: 0.063 },
+		'O1': { x: 2.373, y: 0.761, z: -1.184 },
+		'O2': { x: -0.048, y: 2.628, z: -0.923 },
+		'O3': { x: -2.373, y: 0.761, z: 0.547 },
+		'O4': { x: -2.316, y: -1.256, z: -0.428 },
+		'C6': { x: 0.048, y: -2.628, z: 0.923 },
+		'O6': { x: -1.127, y: -3.343, z: 0.932 }
+	};
+
+	const threeAtoms = {};
+	for (const [name, pos] of Object.entries(heavyAtomCoords)) {
+		const symbol = name.replace(/\d/g, '');
+		const data = symbol === 'C' ? cData : oData;
+		const atom = addAtom(data, new THREE.Vector3(pos.x, pos.y, pos.z).multiplyScalar(scale));
+		threeAtoms[name] = atom;
+		allNewAtoms.push(atom);
+	}
+	
+	createBond(threeAtoms.C1, threeAtoms.C2);
+	createBond(threeAtoms.C2, threeAtoms.C3);
+	createBond(threeAtoms.C3, threeAtoms.C4);
+	createBond(threeAtoms.C4, threeAtoms.C5);
+	createBond(threeAtoms.C5, threeAtoms.O5);
+	createBond(threeAtoms.O5, threeAtoms.C1);
+	createBond(threeAtoms.C1, threeAtoms.O1);
+	createBond(threeAtoms.C2, threeAtoms.O2);
+	createBond(threeAtoms.C3, threeAtoms.O3);
+	createBond(threeAtoms.C4, threeAtoms.O4);
+	createBond(threeAtoms.C5, threeAtoms.C6);
+	createBond(threeAtoms.C6, threeAtoms.O6);
+
+	['C1', 'C2', 'C3', 'C4', 'C5'].forEach(name => allNewAtoms.push(placeAtom(hData, threeAtoms[name])));
+	allNewAtoms.push(placeAtom(hData, threeAtoms.C6));
+	allNewAtoms.push(placeAtom(hData, threeAtoms.C6));
+	['O1', 'O2', 'O3', 'O4', 'O6'].forEach(name => allNewAtoms.push(placeAtom(hData, threeAtoms[name])));
+
+	return { atoms: allNewAtoms, attachmentPoint: threeAtoms.C1, chainEnd: threeAtoms.C4 };
 }
 
 function buildGenericGroup(composition) {
