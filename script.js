@@ -117,7 +117,9 @@ function init() {
 	scene.add(formalChargeLabelsGroup);
 	
 	camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-	camera.position.z = 15;
+	const initialDistance = 15;
+	const randomAngle = Math.random() * Math.PI * 2;
+	camera.position.set(initialDistance * Math.sin(randomAngle), 0, initialDistance * Math.cos(randomAngle));
 	renderer = new THREE.WebGLRenderer({ antialias: true });
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	document.body.appendChild(renderer.domElement);
