@@ -2,7 +2,7 @@
 
 Molecule Builder is an interactive web-based tool that allows you to create, visualize, and manipulate 3D models of chemical molecules. Built with Three.js, it provides an intuitive interface for students, educators, and chemistry enthusiasts to explore molecular structures.
 
-**[Live Demo](https://wartets.github.io/Nuage/)**
+**[Live Demo](https://wartets.github.io/Molecule-Builder/)**
 
 ## Features
 
@@ -61,10 +61,10 @@ As this is a pure front-end project, there are no build steps required.
 
 1.  Clone the repository:
     ```sh
-    git clone https://github.com/wartets/Nuage.git
+    git clone https://github.com/wartets/Molecule-Builder.git
     ```
 2.  Navigate to the project directory:
     ```sh
-    cd Nuage
+    cd Molecule-Builder
     ```
 3.  Open the `index.html` file in your web browser.
