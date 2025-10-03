@@ -1,0 +1,21 @@
+{
+  "name": "Molecule Builder",
+  "short_name": "MolBuilder",
+  "description": "An interactive 3D molecule builder that allows you to create and visualize molecules by selecting elements from the periodic table or by entering a chemical formula.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#1c1c1e",
+  "icons": [
+    {
+      "src": "https://wartets.github.io/N-Body-Problem/image/browser-icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://wartets.github.io/N-Body-Problem/image/browser-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
