@@ -19,6 +19,7 @@ canvas {
 	top: 0;
 	left: 0;
 	z-index: 1;
+	animation: fadeIn 0.5s cubic-bezier(0.5, -0.5, 0.5, 1.5);
 }
 
 @keyframes rotate-on-click {
@@ -30,6 +31,37 @@ canvas {
 	}
 	100% {
 		transform: rotate(360deg);
+	}
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes fly-out {
+	from {
+		transform: var(--current-transform);
+		opacity: 1;
+	}
+	to {
+		transform: translate(var(--end-tx), var(--end-ty)) scale(0);
+		opacity: 0;
+	}
+}
+
+@keyframes fly-in {
+	from {
+		transform: translate(var(--start-tx, 0), var(--start-ty, 0)) scale(0);
+		opacity: 0;
+	}
+	to {
+		transform: var(--current-transform, scale(1));
+		opacity: 1;
 	}
 }
 
@@ -54,6 +86,7 @@ canvas {
 	cursor: pointer;
 	padding: 8px;
 	transition: transform 0.4s cubic-bezier(0.5, -0.5, 0.5, 1.5), opacity 0.4s ease;
+	animation: fadeIn 1.3s cubic-bezier(0.5, -0.5, 0.5, 1.5);
 }
 
 #settings-icon:hover,
@@ -160,28 +193,6 @@ canvas {
 	animation: fly-out 0.4s cubic-bezier(0.5, 0, 0.75, 0) forwards;
 }
 
-@keyframes fly-out {
-	from {
-		transform: var(--current-transform);
-		opacity: 1;
-	}
-	to {
-		transform: translate(var(--end-tx), var(--end-ty)) scale(0);
-		opacity: 0;
-	}
-}
-
-@keyframes fly-in {
-	from {
-		transform: translate(var(--start-tx, 0), var(--start-ty, 0)) scale(0);
-		opacity: 0;
-	}
-	to {
-		transform: var(--current-transform, scale(1));
-		opacity: 1;
-	}
-}
-
 #ui-container.showing,
 #info-ui-container.showing,
 #tools-ui-container.showing {
@@ -199,6 +210,7 @@ canvas {
 	font-size: 1.1em;
 	user-select: none;
 	cursor: grab;
+	animation: fadeIn 1.4s cubic-bezier(0.5, -0.5, 0.5, 1.5);
 }
 
 #ui-container .header:active,
@@ -212,6 +224,7 @@ canvas {
 #tools-close-button {
 	position: static;
 	color: #f0f0f0;
+	animation: none;
 }
 
 #info-content-area {
@@ -243,6 +256,7 @@ canvas {
 	gap: 2px;
 	overflow-y: auto;
 	padding: 2px;
+	animation: fadeIn 1.5s cubic-bezier(0.5, -0.5, 0.5, 1.5);
 }
 
 .element {
@@ -310,6 +324,7 @@ canvas {
 	cursor: pointer;
 	font-weight: bold;
 	transition: background-color 0.2s;
+	animation: fadeIn 1.5s cubic-bezier(0.5, -0.5, 0.5, 1.5);
 }
 
 #reset-button:hover {
@@ -330,6 +345,7 @@ canvas {
 	text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
 	transition: opacity 0.3s ease;
 	opacity: 0;
+	animation: fadeIn 1.5s cubic-bezier(0.5, -0.5, 0.5, 1.5);
 }
 
 #molecule-info.visible {
@@ -386,6 +402,7 @@ canvas {
 	font-size: 1em;
 	font-family: monospace;
 	transition: border-color 0.2s;
+	animation: fadeIn 1.5s cubic-bezier(0.5, -0.5, 0.5, 1.5);
 }
 
 #formula-input:focus {
@@ -574,6 +591,34 @@ input[type="checkbox"]:checked::before {
 	opacity: 0.9 !important;
 	transition: opacity 0.2s ease;
 }
+
+footer {
+	position: fixed;
+	bottom: 10px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 10;
+	color: #999;
+	font-size: 0.75rem;
+	text-align: center;
+	pointer-events: none;
+	text-shadow: 0 0 5px rgba(0, 0, 0, 0.7);
+	white-space: nowrap;
+	animation: fadeIn 1s cubic-bezier(0.5, -0.5, 0.5, 1.5);
+}
+
+footer a {
+	color: #bbb;
+	text-decoration: none;
+	pointer-events: auto;
+	transition: color 0.2s;
+	animation: fadeIn 1.1s cubic-bezier(0.5, -0.5, 0.5, 1.5);
+}
+
+footer a:hover {
+	color: #fff;
+	text-decoration: underline;
+}
 	
 @media (max-width: 768px) {
 	#settings-icon,
@@ -665,5 +710,9 @@ input[type="checkbox"]:checked::before {
 	}
 	#tools-content-area {
 		padding-bottom: 10px;
+	}
+	footer {
+		bottom: 5px;
+		font-size: 0.65rem;
 	}
 }
