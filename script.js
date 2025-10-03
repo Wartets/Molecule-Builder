@@ -84,10 +84,14 @@ let moleculeInfoDiv, moleculeFormulaSpan, moleculeNameSpan;
 const FORMULA_TO_BUILDER = {
 	'C6H6': buildBenzeneMolecule,
 	'C10H8': buildNaphthalene,
+	'C14H10': buildAnthracene,
 	'C10H16': buildAdamantane,
 	'C8H8': buildCubane,
 	'C6H12': buildCyclohexaneChair,
-	'C6H12O6': buildGlucose
+	'C6H12O6': buildGlucose,
+	'C9H8O4': buildAspirin,
+	'C8H10N4O2': buildCaffeine,
+	'DNA': buildDnaSegment,
 };
 
 const NAME_TO_FORMULA = {};
@@ -95,6 +99,10 @@ for (const formula in KNOWN_COMPOUNDS) {
 	const name = KNOWN_COMPOUNDS[formula].toLowerCase();
 	NAME_TO_FORMULA[name] = formula;
 }
+
+KNOWN_COMPOUNDS['DNA'] = 'Deoxyribonucleic Acid Segment';
+NAME_TO_FORMULA['deoxyribonucleic acid segment'] = 'DNA';
+NAME_TO_FORMULA['dna'] = 'DNA';
 
 function init() {
 	scene = new THREE.Scene();
@@ -3189,6 +3197,343 @@ function buildGlucose() {
 	['O1', 'O2', 'O3', 'O4', 'O6'].forEach(name => allNewAtoms.push(placeAtom(hData, threeAtoms[name])));
 
 	return { atoms: allNewAtoms, attachmentPoint: threeAtoms.C1, chainEnd: threeAtoms.C4 };
+}
+
+function buildAspirin() {
+	const carbonData = elementsData.find(e => e.symbol === 'C');
+	const oxygenData = elementsData.find(e => e.symbol === 'O');
+	const hydrogenData = elementsData.find(e => e.symbol === 'H');
+
+	const carbons = [];
+	const radius = 1.4;
+	for (let i = 0; i < 6; i++) {
+		const angle = (i / 6) * 2 * Math.PI;
+		const carbonAtom = addAtom(carbonData, new THREE.Vector3(radius * Math.cos(angle), radius * Math.sin(angle), 0));
+		carbons.push(carbonAtom);
+	}
+	for (let i = 0; i < 6; i++) {
+		createBond(carbons[i], carbons[(i + 1) % 6]);
+	}
+	for (let i = 0; i < 6; i += 2) {
+		incrementBondOrder(carbons[i], carbons[(i + 1) % 6]);
+	}
+
+	const c1 = carbons[0];
+	const c2 = carbons[1];
+
+	for (let i = 2; i < 6; i++) {
+		placeAtom(hydrogenData, carbons[i]);
+	}
+
+	const carboxylC = placeAtom(carbonData, c1);
+	updateAtomGeometry(c1);
+	const carbonylO = placeAtom(oxygenData, carboxylC);
+	incrementBondOrder(carboxylC, carbonylO);
+	const hydroxylO = placeAtom(oxygenData, carboxylC);
+	placeAtom(hydrogenData, hydroxylO);
+	updateAtomGeometry(carboxylC);
+
+	const esterO = placeAtom(oxygenData, c2);
+	updateAtomGeometry(c2);
+	const acetylC_carbonyl = placeAtom(carbonData, esterO);
+	updateAtomGeometry(esterO);
+	const acetylO = placeAtom(oxygenData, acetylC_carbonyl);
+	incrementBondOrder(acetylC_carbonyl, acetylO);
+	const methylC = placeAtom(carbonData, acetylC_carbonyl);
+	updateAtomGeometry(acetylC_carbonyl);
+
+	for (let i = 0; i < 3; i++) {
+		placeAtom(hydrogenData, methylC);
+	}
+	updateAtomGeometry(methylC);
+}
+
+function buildCaffeine() {
+	const atomData = {
+		C: elementsData.find(e => e.symbol === 'C'),
+		N: elementsData.find(e => e.symbol === 'N'),
+		O: elementsData.find(e => e.symbol === 'O'),
+		H: elementsData.find(e => e.symbol === 'H'),
+	};
+
+	const positions = {
+		N1: { el: 'N', pos: new THREE.Vector3(-1.17, 1.48, 0) },
+		C2: { el: 'C', pos: new THREE.Vector3(-0.01, 0.99, 0) },
+		N3: { el: 'N', pos: new THREE.Vector3(0.95, 1.81, 0) },
+		C4: { el: 'C', pos: new THREE.Vector3(0.43, 2.98, 0) },
+		C5: { el: 'C', pos: new THREE.Vector3(-0.89, 3.22, 0) },
+		C6: { el: 'C', pos: new THREE.Vector3(-1.65, 2.47, 0) },
+		N7: { el: 'N', pos: new THREE.Vector3(1.52, 4.02, 0) },
+		C8: { el: 'C', pos: new THREE.Vector3(0.59, 4.80, 0) },
+		N9: { el: 'N', pos: new THREE.Vector3(-0.66, 4.41, 0) },
+		O2: { el: 'O', pos: new THREE.Vector3(-0.23, -0.19, 0) },
+		O6: { el: 'O', pos: new THREE.Vector3(-2.84, 2.71, 0) },
+		C_N1: { el: 'C', pos: new THREE.Vector3(-2.22, 0.59, 0) },
+		C_N3: { el: 'C', pos: new THREE.Vector3(2.26, 1.34, 0) },
+		C_N7: { el: 'C', pos: new THREE.Vector3(2.85, 3.65, 0) },
+		H8: { el: 'H', pos: new THREE.Vector3(0.89, 5.82, 0) },
+	};
+
+	const atomMap = {};
+	for (const key in positions) {
+		const { el, pos } = positions[key];
+		atomMap[key] = addAtom(atomData[el], pos);
+	}
+
+	const bondsToCreate = [
+		['N1', 'C2', 1], ['C2', 'N3', 1], ['N3', 'C4', 1], ['C4', 'C5', 2],
+		['C5', 'C6', 1], ['C6', 'N1', 1], ['C4', 'N9', 1], ['N9', 'C8', 1],
+		['C8', 'N7', 2], ['N7', 'C5', 1], ['C2', 'O2', 2], ['C6', 'O6', 2],
+		['N1', 'C_N1', 1], ['N3', 'C_N3', 1], ['N7', 'C_N7', 1], ['C8', 'H8', 1],
+	];
+
+	bondsToCreate.forEach(([a1, a2, order]) => {
+		createBond(atomMap[a1], atomMap[a2]);
+		if (order > 1) {
+			for (let i = 1; i < order; i++) {
+				incrementBondOrder(atomMap[a1], atomMap[a2]);
+			}
+		}
+	});
+
+	const methylCarbons = ['C_N1', 'C_N3', 'C_N7'];
+	methylCarbons.forEach(cKey => {
+		const cAtom = atomMap[cKey];
+		while(getBondOrderSum(cAtom) < cAtom.data.maxBonds){
+			placeAtom(atomData.H, cAtom);
+		}
+		updateAtomGeometry(cAtom);
+	});
+}
+
+function buildAnthracene() {
+	const atomData = {
+		C: elementsData.find(e => e.symbol === 'C'),
+		H: elementsData.find(e => e.symbol === 'H'),
+	};
+
+	const positions = {
+		C1: { el: 'C', pos: new THREE.Vector3(2.45, 1.4, 0) },
+		C2: { el: 'C', pos: new THREE.Vector3(3.65, 0.7, 0) },
+		C3: { el: 'C', pos: new THREE.Vector3(3.65, -0.7, 0) },
+		C4: { el: 'C', pos: new THREE.Vector3(2.45, -1.4, 0) },
+		C4a: { el: 'C', pos: new THREE.Vector3(1.25, -0.7, 0) },
+		C10a: { el: 'C', pos: new THREE.Vector3(1.25, 0.7, 0) },
+		C9a: { el: 'C', pos: new THREE.Vector3(-1.25, 0.7, 0) },
+		C8a: { el: 'C', pos: new THREE.Vector3(-1.25, -0.7, 0) },
+		C8: { el: 'C', pos: new THREE.Vector3(-2.45, -1.4, 0) },
+		C7: { el: 'C', pos: new THREE.Vector3(-3.65, -0.7, 0) },
+		C6: { el: 'C', pos: new THREE.Vector3(-3.65, 0.7, 0) },
+		C5: { el: 'C', pos: new THREE.Vector3(-2.45, 1.4, 0) },
+		C9: { el: 'C', pos: new THREE.Vector3(0, 2.1, 0) },
+		C10: { el: 'C', pos: new THREE.Vector3(0, -2.1, 0) },
+	};
+
+	const atomMap = {};
+	for (const key in positions) {
+		atomMap[key] = addAtom(atomData.C, positions[key].pos);
+	}
+
+	const bondsToCreate = [
+		['C1', 'C10a'], ['C2', 'C1'], ['C3', 'C2'], ['C4', 'C3'], ['C4a', 'C4'],
+		['C10a', 'C9a'], ['C10a', 'C9'], ['C4a', 'C8a'], ['C4a', 'C10'], ['C9a', 'C5'],
+		['C9a', 'C8a'], ['C8a', 'C8'], ['C5', 'C6'], ['C6', 'C7'], ['C7', 'C8']
+	];
+
+	bondsToCreate.forEach(([a1, a2]) => createBond(atomMap[a1], atomMap[a2]));
+
+	const doubleBonds = [
+		['C1', 'C2'], ['C3', 'C4'], ['C5', 'C6'], ['C7', 'C8'],
+		['C9', 'C10a'], ['C10', 'C4a'], ['C8a', 'C9a']
+	];
+
+	doubleBonds.forEach(([a1, a2]) => incrementBondOrder(atomMap[a1], atomMap[a2]));
+
+	const carbonsWithHydrogens = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'];
+	carbonsWithHydrogens.forEach(cKey => {
+		placeAtom(atomData.H, atomMap[cKey]);
+	});
+}
+
+function buildDnaSegment() {
+	const numBasePairs = 10;
+	const sequence = "ATCGATCGAT";
+	
+	const RISE_PER_BASE = 3.4;
+	const TWIST_PER_BASE_DEG = 36;
+	const TWIST_PER_BASE_RAD = (TWIST_PER_BASE_DEG * Math.PI) / 180;
+
+	const atomData = {
+		C: elementsData.find(e => e.symbol === 'C'),
+		N: elementsData.find(e => e.symbol === 'N'),
+		O: elementsData.find(e => e.symbol === 'O'),
+		P: elementsData.find(e => e.symbol === 'P'),
+		H: elementsData.find(e => e.symbol === 'H')
+	};
+	
+	const basePairStructures = {
+		AT: {
+			atoms: [
+				{ id: "P1", el: "P", p: new THREE.Vector3(5.72, 8.52, -1.22) },
+				{ id: "O1P1", el: "O", p: new THREE.Vector3(6.58, 8.52, -2.38) },
+				{ id: "O2P1", el: "O", p: new THREE.Vector3(4.35, 9.17, -1.22) },
+				{ id: "O5'1", el: "O", p: new THREE.Vector3(6.25, 7.21, -0.63) },
+				{ id: "C5'1", el: "C", p: new THREE.Vector3(5.82, 6.02, -1.21) },
+				{ id: "C4'1", el: "C", p: new THREE.Vector3(4.31, 5.92, -1.13) },
+				{ id: "O4'1", el: "O", p: new THREE.Vector3(3.72, 6.64, -0.09) },
+				{ id: "C3'1", el: "C", p: new THREE.Vector3(3.81, 4.54, -1.48) },
+				{ id: "O3'1", el: "O", p: new THREE.Vector3(2.42, 4.51, -1.33) },
+				{ id: "C2'1", el: "C", p: new THREE.Vector3(4.29, 4.2, -0.11) },
+				{ id: "C1'1", el: "C", p: new THREE.Vector3(4.02, 5.4, 0.73) },
+				{ id: "N9", el: "N", p: new THREE.Vector3(2.68, 5.9, 0.61) },
+				{ id: "C8", el: "C", p: new THREE.Vector3(1.7, 5.2, 1.14) },
+				{ id: "N7", el: "N", p: new THREE.Vector3(0.67, 5.86, 1.48) },
+				{ id: "C5", el: "C", p: new THREE.Vector3(0.96, 7.07, 1.18) },
+				{ id: "C6", el: "C", p: new THREE.Vector3(0.2, 8.16, 1.39) },
+				{ id: "N6", el: "N", p: new THREE.Vector3(0.6, 9.35, 1.08) },
+				{ id: "N1", el: "N", p: new THREE.Vector3(-0.99, 7.94, 2.01) },
+				{ id: "C2", el: "C", p: new THREE.Vector3(-1.26, 6.75, 2.3) },
+				{ id: "N3", el: "N", p: new THREE.Vector3(-0.5, 5.75, 2.01) },
+				{ id: "C4", el: "C", p: new THREE.Vector3(1.97, 7.3, 0.6) },
+				{ id: "P2", el: "P", p: new THREE.Vector3(-5.72, -8.52, 1.22) },
+				{ id: "O1P2", el: "O", p: new THREE.Vector3(-6.58, -8.52, 2.38) },
+				{ id: "O2P2", el: "O", p: new THREE.Vector3(-4.35, -9.17, 1.22) },
+				{ id: "O5'2", el: "O", p: new THREE.Vector3(-6.25, -7.21, 0.63) },
+				{ id: "C5'2", el: "C", p: new THREE.Vector3(-5.82, -6.02, 1.21) },
+				{ id: "C4'2", el: "C", p: new THREE.Vector3(-4.31, -5.92, 1.13) },
+				{ id: "O4'2", el: "O", p: new THREE.Vector3(-3.72, -6.64, 0.09) },
+				{ id: "C3'2", el: "C", p: new THREE.Vector3(-3.81, -4.54, 1.48) },
+				{ id: "O3'2", el: "O", p: new THREE.Vector3(-2.42, -4.51, 1.33) },
+				{ id: "C2'2", el: "C", p: new THREE.Vector3(-4.29, -4.2, -0.11) },
+				{ id: "C1'2", el: "C", p: new THREE.Vector3(-4.02, -5.4, -0.73) },
+				{ id: "N1T", el: "N", p: new THREE.Vector3(-2.6, -5.6, -0.56) },
+				{ id: "C2T", el: "C", p: new THREE.Vector3(-1.6, -6.2, -1.2) },
+				{ id: "O2T", el: "O", p: new THREE.Vector3(-1.8, -6.7, -2.2) },
+				{ id: "N3T", el: "N", p: new THREE.Vector3(-0.4, -6.1, -0.6) },
+				{ id: "C4T", el: "C", p: new THREE.Vector3(-0.5, -5.3, 0.5) },
+				{ id: "O4T", el: "O", p: new THREE.Vector3(0.5, -5.2, 1.1) },
+				{ id: "C5T", el: "C", p: new THREE.Vector3(-1.8, -4.8, 0.9) },
+				{ id: "C7T", el: "C", p: new THREE.Vector3(-2.0, -4.0, 2.1) },
+				{ id: "C6T", el: "C", p: new THREE.Vector3(-2.7, -5.0, -0.0) },
+			],
+			bonds: [
+				["P1","O1P1"], ["P1","O2P1"], ["P1","O5'1"], ["O5'1","C5'1"], ["C5'1","C4'1"], ["C4'1","O4'1"], ["C4'1","C3'1"], ["O4'1","C1'1"], ["C3'1","O3'1"], ["C3'1","C2'1"], ["C2'1","C1'1"], ["C1'1","N9"], ["N9","C8"], ["N9","C4"], ["C8","N7"], ["N7","C5"], ["C5","C6"], ["C5","C4"], ["C6","N6", 2], ["C6","N1"], ["N1","C2"], ["C2","N3"], ["N3","C4"],
+				["P2","O1P2"], ["P2","O2P2"], ["P2","O5'2"], ["O5'2","C5'2"], ["C5'2","C4'2"], ["C4'2","O4'2"], ["C4'2","C3'2"], ["O4'2","C1'2"], ["C3'2","O3'2"], ["C3'2","C2'2"], ["C2'2","C1'2"], ["C1'2","N1T"], ["N1T","C2T"], ["N1T","C6T"], ["C2T","O2T",2], ["C2T","N3T"], ["N3T","C4T"], ["C4T","O4T",2], ["C4T","C5T"], ["C5T","C7T"], ["C5T","C6T",2],
+				["N6","O4T"], ["N1","N3T"]
+			],
+			linkage: { s1_start: "P1", s1_end: "O3'1", s2_start: "P2", s2_end: "O3'2" }
+		},
+		CG: {
+			atoms: [
+				{ id: "P1", el: "P", p: new THREE.Vector3(5.72, 8.52, -1.22) },
+				{ id: "O1P1", el: "O", p: new THREE.Vector3(6.58, 8.52, -2.38) },
+				{ id: "O2P1", el: "O", p: new THREE.Vector3(4.35, 9.17, -1.22) },
+				{ id: "O5'1", el: "O", p: new THREE.Vector3(6.25, 7.21, -0.63) },
+				{ id: "C5'1", el: "C", p: new THREE.Vector3(5.82, 6.02, -1.21) },
+				{ id: "C4'1", el: "C", p: new THREE.Vector3(4.31, 5.92, -1.13) },
+				{ id: "O4'1", el: "O", p: new THREE.Vector3(3.72, 6.64, -0.09) },
+				{ id: "C3'1", el: "C", p: new THREE.Vector3(3.81, 4.54, -1.48) },
+				{ id: "O3'1", el: "O", p: new THREE.Vector3(2.42, 4.51, -1.33) },
+				{ id: "C2'1", el: "C", p: new THREE.Vector3(4.29, 4.2, -0.11) },
+				{ id: "C1'1", el: "C", p: new THREE.Vector3(4.02, 5.4, 0.73) },
+				{ id: "N9G", el: "N", p: new THREE.Vector3(2.68, 5.9, 0.61) },
+				{ id: "C8G", el: "C", p: new THREE.Vector3(1.7, 5.2, 1.14) },
+				{ id: "N7G", el: "N", p: new THREE.Vector3(0.67, 5.86, 1.48) },
+				{ id: "C5G", el: "C", p: new THREE.Vector3(0.96, 7.07, 1.18) },
+				{ id: "C6G", el: "C", p: new THREE.Vector3(0.2, 8.16, 1.39) },
+				{ id: "O6G", el: "O", p: new THREE.Vector3(0.6, 9.2, 1.0) },
+				{ id: "N1G", el: "N", p: new THREE.Vector3(-0.99, 7.94, 2.01) },
+				{ id: "C2G", el: "C", p: new THREE.Vector3(-1.26, 6.75, 2.3) },
+				{ id: "N2G", el: "N", p: new THREE.Vector3(-2.4, 6.5, 2.8) },
+				{ id: "N3G", el: "N", p: new THREE.Vector3(-0.5, 5.75, 2.01) },
+				{ id: "C4G", el: "C", p: new THREE.Vector3(1.97, 7.3, 0.6) },
+				{ id: "P2", el: "P", p: new THREE.Vector3(-5.72, -8.52, 1.22) },
+				{ id: "O1P2", el: "O", p: new THREE.Vector3(-6.58, -8.52, 2.38) },
+				{ id: "O2P2", el: "O", p: new THREE.Vector3(-4.35, -9.17, 1.22) },
+				{ id: "O5'2", el: "O", p: new THREE.Vector3(-6.25, -7.21, 0.63) },
+				{ id: "C5'2", el: "C", p: new THREE.Vector3(-5.82, -6.02, 1.21) },
+				{ id: "C4'2", el: "C", p: new THREE.Vector3(-4.31, -5.92, 1.13) },
+				{ id: "O4'2", el: "O", p: new THREE.Vector3(-3.72, -6.64, 0.09) },
+				{ id: "C3'2", el: "C", p: new THREE.Vector3(-3.81, -4.54, 1.48) },
+				{ id: "O3'2", el: "O", p: new THREE.Vector3(-2.42, -4.51, 1.33) },
+				{ id: "C2'2", el: "C", p: new THREE.Vector3(-4.29, -4.2, -0.11) },
+				{ id: "C1'2", el: "C", p: new THREE.Vector3(-4.02, -5.4, -0.73) },
+				{ id: "N1C", el: "N", p: new THREE.Vector3(-2.6, -5.6, -0.56) },
+				{ id: "C2C", el: "C", p: new THREE.Vector3(-1.6, -6.2, -1.2) },
+				{ id: "O2C", el: "O", p: new THREE.Vector3(-1.8, -6.9, -2.1) },
+				{ id: "N3C", el: "N", p: new THREE.Vector3(-0.4, -6.1, -0.6) },
+				{ id: "C4C", el: "C", p: new THREE.Vector3(-0.5, -5.3, 0.5) },
+				{ id: "N4C", el: "N", p: new THREE.Vector3(0.5, -5.2, 1.1) },
+				{ id: "C5C", el: "C", p: new THREE.Vector3(-1.8, -4.8, 0.9) },
+				{ id: "C6C", el: "C", p: new THREE.Vector3(-2.7, -5.0, -0.0) },
+			],
+			bonds: [
+				["P1","O1P1"], ["P1","O2P1"], ["P1","O5'1"], ["O5'1","C5'1"], ["C5'1","C4'1"], ["C4'1","O4'1"], ["C4'1","C3'1"], ["O4'1","C1'1"], ["C3'1","O3'1"], ["C3'1","C2'1"], ["C2'1","C1'1"], ["C1'1","N9G"], ["N9G","C8G"], ["N9G","C4G"], ["C8G","N7G"], ["N7G","C5G"], ["C5G","C6G"], ["C5G","C4G",2], ["C6G","O6G",2], ["C6G","N1G"], ["N1G","C2G"], ["C2G","N2G",2], ["C2G","N3G"], ["N3G","C4G"],
+				["P2","O1P2"], ["P2","O2P2"], ["P2","O5'2"], ["O5'2","C5'2"], ["C5'2","C4'2"], ["C4'2","O4'2"], ["C4'2","C3'2"], ["O4'2","C1'2"], ["C3'2","O3'2"], ["C3'2","C2'2"], ["C2'2","C1'2"], ["C1'2","N1C"], ["N1C","C2C"], ["N1C","C6C",2], ["C2C","O2C",2], ["C2C","N3C"], ["N3C","C4C"], ["C4C","N4C",2], ["C4C","C5C"], ["C5C","C6C"],
+				["O6G","N4C"],["N1G","O2C"],["N2G","N3C"]
+			],
+			linkage: { s1_start: "P1", s1_end: "O3'1", s2_start: "P2", s2_end: "O3'2" }
+		}
+	};
+	
+	let lastS1Linker = null;
+	let lastS2Linker = null;
+
+	for (let i = 0; i < numBasePairs; i++) {
+		const base = sequence[i];
+		let bpData;
+		let flip = false;
+		if (base === 'A' || base === 'T') {
+			bpData = basePairStructures.AT;
+			if (base === 'T') flip = true;
+		} else {
+			bpData = basePairStructures.CG;
+			if (base === 'C') flip = true;
+		}
+
+		const atomMap = new Map();
+		const transform = new THREE.Matrix4();
+		transform.makeRotationZ(i * TWIST_PER_BASE_RAD);
+		transform.setPosition(0, 0, i * RISE_PER_BASE);
+
+		bpData.atoms.forEach(atomDef => {
+			let pos = atomDef.p.clone();
+			if(flip) pos.multiplyScalar(-1);
+			pos.applyMatrix4(transform);
+			const newAtom = addAtom(atomData[atomDef.el], pos);
+			atomMap.set(atomDef.id, newAtom);
+		});
+		
+		bpData.bonds.forEach(bondDef => {
+			const [id1, id2, order] = bondDef;
+			const atom1 = atomMap.get(id1);
+			const atom2 = atomMap.get(id2);
+			if (atom1 && atom2) {
+				createBond(atom1, atom2);
+				if (order > 1) {
+					incrementBondOrder(atom1, atom2);
+				}
+			}
+		});
+		
+		const currentS1Linker = atomMap.get(bpData.linkage.s1_start);
+		const currentS2Linker = atomMap.get(bpData.linkage.s2_start);
+		const prevS1Linker = lastS1Linker;
+		const prevS2Linker = lastS2Linker;
+
+		if (i > 0) {
+			if (flip) {
+				if(prevS2Linker) createBond(prevS2Linker, currentS1Linker);
+				if(prevS1Linker) createBond(prevS1Linker, currentS2Linker);
+			} else {
+				if(prevS1Linker) createBond(prevS1Linker, currentS1Linker);
+				if(prevS2Linker) createBond(prevS2Linker, currentS2Linker);
+			}
+		}
+
+		lastS1Linker = atomMap.get(bpData.linkage.s1_end);
+		lastS2Linker = atomMap.get(bpData.linkage.s2_end);
+	}
 }
 
 function buildGenericGroup(composition) {

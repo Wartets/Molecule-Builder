@@ -203,7 +203,7 @@ const KNOWN_COMPOUNDS = {
 	'CH2Cl2': 'Dichloromethane', 'CHCl3': 'Chloroform', 'CCl4': 'Carbon Tetrachloride',
 	'C6H12O6': 'Glucose', 'C12H22O11': 'Sucrose', 'C2H5SH': 'Ethanethiol', 'C6H5OH': 'Phenol',
 	'CH3COONa': 'Sodium Acetate', 'C6H5COOH': 'Benzoic Acid', 'C6H5COONa': 'Sodium Benzoate',
-	'C5H5N': 'Pyridine', 'C4H4O': 'Furan', 'C4H4S': 'Thiophene', 'C4H5N': 'Pyrrole'
+	'C5H5N': 'Pyridine', 'C4H4O': 'Furan', 'C4H4S': 'Thiophene', 'C4H5N': 'Pyrrole', 'DNA': 'Deoxyribonucleic Acid Segment'
 };
 
 const POLYATOMIC_IONS = {
